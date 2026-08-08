@@ -1,78 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Liminal AI 0.4</title>
+    <meta charset="UTF-8">
 
-    <link rel="stylesheet" href="style.css">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Liminal AI 0.5</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 </head>
-
 
 <body>
 
-<div id="chat">
+    <div id="chat">
 
+        <!-- HEADER -->
 
-    <div id="header">
+        <div id="header">
 
-        <div id="title">
-            🤖 Liminal AI 0.4
+            <div id="title">
+                🤖 Liminal AI 0.5
+            </div>
+
+            <div id="headerControls">
+
+                <div id="status">
+                    🟢 Online
+                </div>
+
+                <button
+                    id="themeButton"
+                    onclick="toggleTheme()"
+                >
+                    ☀️ Light
+                </button>
+
+            </div>
+
         </div>
 
-        <div id="status">
-            🟢 Online
+
+        <!-- MESSAGES -->
+
+        <div id="messages">
+
+            <div class="ai">
+                Hello! I'm Liminal AI 0.5.
+            </div>
+
+        </div>
+
+
+        <!-- INPUT -->
+
+        <div id="inputArea">
+
+            <input
+                type="text"
+                id="userInput"
+                placeholder="Ask me anything..."
+                autocomplete="off"
+            >
+
+            <button
+                id="sendButton"
+                onclick="sendMessage()"
+            >
+                Send
+            </button>
+
+            <button
+                id="clearButton"
+                onclick="clearChat()"
+            >
+                Clear
+            </button>
+
         </div>
 
     </div>
 
 
-
-    <div id="messages">
-
-        <div class="ai">
-            Hello! I'm Liminal AI 0.4.
-        </div>
-
-    </div>
-
-
-
-    <div id="inputArea">
-
-
-        <input
-            type="text"
-            id="userInput"
-            placeholder="Ask me anything..."
-            autocomplete="off"
-        >
-
-
-        <button 
-            id="sendButton"
-            onclick="sendMessage()"
-        >
-            Send
-        </button>
-
-
-        <button 
-            id="clearButton"
-            onclick="clearChat()"
-        >
-            Clear
-        </button>
-
-
-    </div>
-
-
-</div>
-
-
-
-<script src="script.js"></script>
-
+    <script src="script.js"></script>
 
 </body>
 
