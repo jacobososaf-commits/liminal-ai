@@ -1,28 +1,79 @@
 
 <meta
-name="viewport"
-content="width=device-width, initial-scale=1.0"
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
 >
 
-<!-- HEADER -->
+<title>Liminal AI 0.7</title>
 
-<div id="header">
+<link
+    rel="stylesheet"
+    href="style.css"
+>
 
-    <div id="title">
-        🤖 Liminal AI 0.7
-    </div>
 
-    <div id="headerControls">
+<div id="chat">
 
-        <div id="status">
-            🟢 Online
+    <!-- HEADER -->
+
+    <div id="header">
+
+        <div id="title">
+            🤖 Liminal AI 0.7
         </div>
 
-        <button
-            id="themeButton"
-            onclick="toggleTheme()"
+        <div id="headerControls">
+
+            <div id="status">
+                🟢 Online
+            </div>
+
+            <button
+                id="themeButton"
+                onclick="toggleTheme()"
+            >
+                ☀️ Light
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- MESSAGES -->
+
+    <div id="messages">
+
+        <div class="ai">
+            Hello! I'm Liminal AI 0.7.
+        </div>
+
+    </div>
+
+
+    <!-- INPUT -->
+
+    <div id="inputArea">
+
+        <input
+            type="text"
+            id="userInput"
+            placeholder="Ask me anything..."
+            autocomplete="off"
         >
-            ☀️ Light
+
+        <button
+            id="sendButton"
+            onclick="sendMessage()"
+        >
+            Send
+        </button>
+
+        <button
+            id="clearButton"
+            onclick="clearChat()"
+        >
+            Clear
         </button>
 
     </div>
@@ -30,41 +81,5 @@ content="width=device-width, initial-scale=1.0"
 </div>
 
 
-<!-- MESSAGES -->
-
-<div id="messages">
-
-    <div class="ai">
-        Hello! I'm Liminal AI 0.7.
-    </div>
-
-</div>
-
-
-<!-- INPUT -->
-
-<div id="inputArea">
-
-    <input
-        type="text"
-        id="userInput"
-        placeholder="Ask me anything..."
-        autocomplete="off"
-    >
-
-    <button
-        id="sendButton"
-        onclick="sendMessage()"
-    >
-        Send
-    </button>
-
-    <button
-        id="clearButton"
-        onclick="clearChat()"
-    >
-        Clear
-    </button>
-
-</div>
+<script src="script.js"></script>
 
