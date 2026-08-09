@@ -1,6 +1,6 @@
 // ==========================================
 // LIMINAL AI 0.7
-// CONFIDENCE + LEARNING + MEMORY + BACKEND + SEARCH
+// MEMORY + LEARNING + CONFIDENCE + BACKEND + SEARCH
 // ==========================================
 
 
@@ -38,9 +38,7 @@ function saveMemory() {
 
 let corrections =
     JSON.parse(
-        localStorage.getItem(
-            "liminalCorrections"
-        )
+        localStorage.getItem("liminalCorrections")
     ) || [];
 
 
@@ -89,8 +87,7 @@ async function testBackend() {
 
         const response =
             await fetch(
-                BACKEND_URL +
-                "/api/test"
+                BACKEND_URL + "/api/test"
             );
 
 
@@ -127,11 +124,7 @@ async function testBackend() {
             "⚠️ Liminal AI backend is offline."
         );
 
-
-        console.error(
-            error
-        );
-
+        console.error(error);
 
         return false;
 
@@ -150,8 +143,7 @@ async function getBackendInfo() {
 
         const response =
             await fetch(
-                BACKEND_URL +
-                "/api/info"
+                BACKEND_URL + "/api/info"
             );
 
 
@@ -181,7 +173,6 @@ async function getBackendInfo() {
         console.warn(
             "Could not get backend info."
         );
-
 
         return null;
 
@@ -456,13 +447,18 @@ function normalizeText(text) {
 
     const replacements = {
 
+        "what's": "what is",
         "whats": "what is",
+
+        "who's": "who is",
+        "whos": "who is",
+
         "wats": "what is",
         "wat": "what",
-        "whos": "who is",
 
         "fav": "favorite",
         "favourite": "favorite",
+
         "colour": "color",
 
         "u": "you",
@@ -472,7 +468,10 @@ function normalizeText(text) {
         "plz": "please",
 
         "im": "i am",
+        "i'm": "i am",
+
         "ive": "i have",
+        "i've": "i have",
 
         "do u": "do you",
         "can u": "can you"
@@ -663,6 +662,14 @@ function remember(key, value) {
 
     saveMemory();
 
+
+    console.log(
+        "🧠 Memory saved:",
+        key,
+        "=",
+        value
+    );
+
 }
 
 
@@ -673,6 +680,135 @@ function getMemory(key) {
 
 
     return memory[key];
+
+}
+
+
+// ==========================================
+// FIND MEMORY KEY
+// ==========================================
+
+function findMemoryKey(text) {
+
+    text =
+        normalizeText(text);
+
+
+    // ======================================
+    // FAVORITE GAME
+    // ======================================
+
+    if (
+        text.includes("favorite game") ||
+        text.includes("what game do i like") ||
+        text.includes("which game do i like") ||
+        text.includes("what videogame do i like") ||
+        text.includes("what video game do i like") ||
+        text.includes("what is my favorite game") ||
+        text.includes("tell me my favorite game") ||
+        text.includes("what is my favorite videogame") ||
+        text.includes("what is my favorite video game")
+    ) {
+
+        return "favorite game";
+
+    }
+
+
+    // ======================================
+    // FAVORITE COLOR
+    // ======================================
+
+    if (
+        text.includes("favorite color") ||
+        text.includes("what color do i like") ||
+        text.includes("which color do i like") ||
+        text.includes("what is my favorite color") ||
+        text.includes("tell me my favorite color")
+    ) {
+
+        return "favorite color";
+
+    }
+
+
+    // ======================================
+    // FAVORITE FOOD
+    // ======================================
+
+    if (
+        text.includes("favorite food") ||
+        text.includes("what food do i like") ||
+        text.includes("which food do i like") ||
+        text.includes("what is my favorite food") ||
+        text.includes("tell me my favorite food")
+    ) {
+
+        return "favorite food";
+
+    }
+
+
+    // ======================================
+    // NAME
+    // ======================================
+
+    if (
+        text === "what is my name" ||
+        text === "who am i" ||
+        text.includes("my name")
+    ) {
+
+        return "name";
+
+    }
+
+
+    // ======================================
+    // LOCATION
+    // ======================================
+
+    if (
+        text.includes("where do i live") ||
+        text.includes("where am i from") ||
+        text.includes("what is my location") ||
+        text.includes("my location")
+    ) {
+
+        return "location";
+
+    }
+
+
+    // ======================================
+    // GENERIC MEMORY MATCH
+    // ======================================
+
+    const memoryKeys =
+        Object.keys(memory);
+
+
+    for (
+        const key of memoryKeys
+    ) {
+
+        const normalizedKey =
+            cleanMemoryKey(key);
+
+
+        if (
+            normalizedKey &&
+            text.includes(normalizedKey)
+        ) {
+
+            return key;
+
+        }
+
+    }
+
+
+    return null;
 
 }
 
@@ -871,26 +1007,10 @@ function handleCorrection(text) {
         correctionText.startsWith("it's ")
     ) {
 
-        let value;
-
-
-        if (
-            correctionText.startsWith("it is ")
-        ) {
-
-            value =
-                correctionText.substring(6);
-
-        } else {
-
-            value =
-                correctionText.substring(6);
-
-        }
-
-
-        value =
-            value.trim();
+        const value =
+            correctionText.substring(
+                6
+            ).trim();
 
 
         if (
@@ -1009,115 +1129,6 @@ function handleCorrection(text) {
         "Got it. I understand that my previous answer was wrong. " +
         "Tell me what the correct answer is and I'll learn from it."
     );
-
-}
-
-
-// ==========================================
-// FIND MEMORY KEY
-// ==========================================
-
-function findMemoryKey(text) {
-
-    text =
-        normalizeText(
-            text
-        );
-
-
-    // FAVORITE COLOR
-
-    if (
-        text.includes(
-            "favorite color"
-        ) ||
-        text.includes(
-            "what color do i like"
-        ) ||
-        text.includes(
-            "which color do i like"
-        )
-    ) {
-
-        return "favorite color";
-
-    }
-
-
-    // FAVORITE GAME
-
-    if (
-        text.includes(
-            "favorite game"
-        ) ||
-        text.includes(
-            "what game do i like"
-        ) ||
-        text.includes(
-            "which game do i like"
-        ) ||
-        text.includes(
-            "what videogame do i like"
-        ) ||
-        text.includes(
-            "what video game do i like"
-        )
-    ) {
-
-        return "favorite game";
-
-    }
-
-
-    // FAVORITE FOOD
-
-    if (
-        text.includes(
-            "favorite food"
-        ) ||
-        text.includes(
-            "what food do i like"
-        ) ||
-        text.includes(
-            "which food do i like"
-        )
-    ) {
-
-        return "favorite food";
-
-    }
-
-
-    // NAME
-
-    if (
-        text.includes(
-            "my name"
-        )
-    ) {
-
-        return "name";
-
-    }
-
-
-    // LOCATION
-
-    if (
-        text.includes(
-            "where do i live"
-        ) ||
-        text.includes(
-            "my location"
-        )
-    ) {
-
-        return "location";
-
-    }
-
-
-    return null;
 
 }
 
@@ -1321,20 +1332,16 @@ function smartUnknown(text) {
 
 
     const timeWords = [
-
         "time",
         "clock",
         "hour"
-
     ];
 
 
     const dateWords = [
-
         "date",
         "day",
         "today"
-
     ];
 
 
@@ -1458,6 +1465,79 @@ function think(originalText) {
 
         return handleCorrection(
             text
+        );
+
+    }
+
+
+    // ======================================
+    // IMPORTANT:
+    // CHECK MEMORY BEFORE CLARIFICATION
+    // ======================================
+
+    const possibleMemoryKey =
+        findMemoryKey(
+            text
+        );
+
+
+    if (
+        possibleMemoryKey
+    ) {
+
+        const value =
+            getMemory(
+                possibleMemoryKey
+            );
+
+
+        if (
+            value !== undefined &&
+            value !== null &&
+            value !== ""
+        ) {
+
+            lastTopic =
+                possibleMemoryKey;
+
+
+            setConfidence(
+                "high"
+            );
+
+
+            console.log(
+                "🧠 MEMORY HIT:",
+                possibleMemoryKey,
+                "=",
+                value
+            );
+
+
+            return (
+                "Your " +
+                cleanMemoryKey(
+                    possibleMemoryKey
+                ) +
+                " is " +
+                value +
+                "."
+            );
+
+        }
+
+
+        setConfidence(
+            "low"
+        );
+
+
+        return (
+            "I don't remember your " +
+            cleanMemoryKey(
+                possibleMemoryKey
+            ) +
+            " yet."
         );
 
     }
@@ -1759,12 +1839,8 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith(
-            "my "
-        ) &&
-        text.includes(
-            " is "
-        )
+        text.startsWith("my ") &&
+        text.includes(" is ")
     ) {
 
         const parts =
@@ -1868,64 +1944,6 @@ function think(originalText) {
 
 
     // ======================================
-    // MEMORY QUESTION
-    // ======================================
-
-    const possibleKey =
-        findMemoryKey(
-            text
-        );
-
-
-    if (
-        possibleKey
-    ) {
-
-        const value =
-            getMemory(
-                possibleKey
-            );
-
-
-        if (
-            value
-        ) {
-
-            lastTopic =
-                possibleKey;
-
-
-            setConfidence(
-                "high"
-            );
-
-
-            return (
-                "Your " +
-                possibleKey +
-                " is " +
-                value +
-                "."
-            );
-
-        }
-
-
-        setConfidence(
-            "low"
-        );
-
-
-        return (
-            "I don't remember your " +
-            possibleKey +
-            " yet."
-        );
-
-    }
-
-
-    // ======================================
     // WHAT IS MY
     // ======================================
 
@@ -1939,11 +1957,9 @@ function think(originalText) {
     ) {
 
         const key =
-            text.startsWith(
-                "what is my "
-            )
-                ? text.substring(11)
-                : text.substring(11);
+            text.substring(
+                11
+            );
 
 
         const cleanKey =
@@ -1959,16 +1975,13 @@ function think(originalText) {
 
 
         if (
-            value
+            value !== undefined &&
+            value !== null &&
+            value !== ""
         ) {
 
             lastTopic =
                 cleanKey;
-
-
-            setConfidence(
-                "high"
-            );
 
 
             return (
@@ -2115,34 +2128,24 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith(
-            "forget my "
-        ) ||
-        text.startsWith(
-            "forget "
-        )
+        text.startsWith("forget my ") ||
+        text.startsWith("forget ")
     ) {
 
         let key;
 
 
         if (
-            text.startsWith(
-                "forget my "
-            )
+            text.startsWith("forget my ")
         ) {
 
             key =
-                text.substring(
-                    10
-                );
+                text.substring(10);
 
         } else {
 
             key =
-                text.substring(
-                    7
-                );
+                text.substring(7);
 
         }
 
@@ -2340,9 +2343,7 @@ function think(originalText) {
                 "."
             );
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
 
             setConfidence(
                 "low"
@@ -2373,7 +2374,10 @@ function think(originalText) {
 // DISPLAY RESPONSE SAFELY
 // ==========================================
 
-function displayAIResponse(element, text) {
+function displayAIResponse(
+    element,
+    text
+) {
 
     element.textContent =
         text;
@@ -2486,7 +2490,7 @@ async function sendMessage() {
 
 
     // ======================================
-    // EXPLICIT SEARCH REQUEST
+    // EXPLICIT SEARCH
     // ======================================
 
     if (
@@ -2591,7 +2595,6 @@ async function sendMessage() {
                 lastResponse =
                     response;
 
-
             } else {
 
                 displayAIResponse(
@@ -2601,19 +2604,13 @@ async function sendMessage() {
 
 
                 lastResponse =
-                    aiMessage.innerText;
+                    aiMessage.textContent;
 
             }
 
 
             messages.scrollTop =
                 messages.scrollHeight;
-
-
-            console.log(
-                "Liminal confidence:",
-                lastConfidence
-            );
 
 
             return;
@@ -2624,7 +2621,7 @@ async function sendMessage() {
 
 
     // ======================================
-    // LOCAL 0.6 BRAIN
+    // LOCAL BRAIN FIRST
     // ======================================
 
     const localReply =
@@ -2633,9 +2630,14 @@ async function sendMessage() {
         );
 
 
+    console.log(
+        "Liminal local confidence:",
+        lastConfidence
+    );
+
+
     // ======================================
     // HIGH CONFIDENCE
-    // USE LOCAL BRAIN
     // ======================================
 
     if (
@@ -2657,13 +2659,7 @@ async function sendMessage() {
 
 
         console.log(
-            "🧠 Liminal used local 0.6 brain."
-        );
-
-
-        console.log(
-            "Liminal confidence:",
-            lastConfidence
+            "🧠 Local 0.6 brain answered."
         );
 
 
@@ -2674,10 +2670,6 @@ async function sendMessage() {
 
     // ======================================
     // MEDIUM CONFIDENCE
-    // USE LOCAL BRAIN
-    //
-    // This prevents Liminal from sending
-    // simple fuzzy suggestions to the backend.
     // ======================================
 
     if (
@@ -2699,13 +2691,7 @@ async function sendMessage() {
 
 
         console.log(
-            "🧠 Liminal used local brain with medium confidence."
-        );
-
-
-        console.log(
-            "Liminal confidence:",
-            lastConfidence
+            "🧠 Local brain answered with medium confidence."
         );
 
 
@@ -2716,7 +2702,6 @@ async function sendMessage() {
 
     // ======================================
     // LOW CONFIDENCE
-    // USE BACKEND
     // ======================================
 
     aiMessage.textContent =
@@ -2789,6 +2774,10 @@ async function sendMessage() {
             );
 
 
+            console.log(
+                "🌐 Backend answered."
+            );
+
         } else {
 
             throw new Error(
@@ -2797,10 +2786,7 @@ async function sendMessage() {
 
         }
 
-
-    } catch (
-        error
-    ) {
+    } catch (error) {
 
         console.warn(
             "Backend unavailable. Using local Liminal AI."
@@ -2826,12 +2812,6 @@ async function sendMessage() {
 
     messages.scrollTop =
         messages.scrollHeight;
-
-
-    console.log(
-        "Liminal confidence:",
-        lastConfidence
-    );
 
 }
 
@@ -2931,22 +2911,17 @@ function clearChat() {
     lastTopic =
         null;
 
-
     lastResponse =
         "";
-
 
     lastAction =
         null;
 
-
     lastQuestion =
         "";
 
-
     waitingForClarification =
         false;
-
 
     setConfidence(
         "high"
