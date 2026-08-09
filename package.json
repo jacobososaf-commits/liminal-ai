@@ -1,0 +1,9 @@
+{
+  "name": "liminal-ai-backend",
+  "version": "0.7.0",
+  "description": "Backend for Liminal AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

@@ -1,7 +1,14 @@
 // ==========================================
-// LIMINAL AI 0.65
-// HARDENING + CONFIDENCE + CORRECTIONS
+// LIMINAL AI 0.7
+// CONFIDENCE + LEARNING + BACKEND + SEARCH
+// ==================================
+
+
 // ==========================================
+// BACKEND
+// ==========================================
+
+const BACKEND_URL = "http://localhost:3000";
 
 
 // ==========================================
@@ -9,46 +16,40 @@
 // ==========================================
 
 let memory =
-    JSON.parse(localStorage.getItem("liminalMemory")) || {};
+    JSON.parse(
+        localStorage.getItem("liminalMemory")
+    ) || {};
+
 
 function saveMemory() {
+
     localStorage.setItem(
         "liminalMemory",
         JSON.stringify(memory)
     );
+
 }
 
 
 // ==========================================
-// CORRECTION MEMORY
+// CORRECTIONS
 // ==========================================
 
 let corrections =
     JSON.parse(
-        localStorage.getItem("liminalCorrections")
+        localStorage.getItem(
+            "liminalCorrections"
+        )
     ) || [];
 
+
 function saveCorrections() {
+
     localStorage.setItem(
         "liminalCorrections",
         JSON.stringify(corrections)
     );
-}
 
-
-// ==========================================
-// SECURITY
-// Escape text before putting it into HTML
-// ==========================================
-
-function escapeHTML(value) {
-
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
 }
 
 
@@ -69,8 +70,270 @@ let waitingForClarification = false;
 
 let lastConfidence = "high";
 
+
 function setConfidence(level) {
+
     lastConfidence = level;
+
+}
+
+
+// ==========================================
+// BACKEND CONNECTION TEST
+// ==========================================
+
+async function testBackend() {
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL +
+                "/api/test"
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Backend returned " +
+                response.status
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Backend response:",
+            data.message
+        );
+
+
+        console.log(
+            "✅ Liminal AI 0.7 backend connected!"
+        );
+
+
+        return true;
+
+    } catch (error) {
+
+        console.warn(
+            "⚠️ Liminal AI backend is offline."
+        );
+
+
+        console.error(
+            error
+        );
+
+
+        return false;
+
+    }
+
+}
+
+
+// ==========================================
+// BACKEND INFO
+// ==========================================
+
+async function getBackendInfo() {
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL +
+                "/api/info"
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Backend info unavailable"
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Liminal backend info:",
+            data
+        );
+
+
+        return data;
+
+    } catch (error) {
+
+        console.warn(
+            "Could not get backend info."
+        );
+
+
+        return null;
+
+    }
+
+}
+
+
+// ==========================================
+// SEARCH
+// ==========================================
+
+async function searchWeb(query) {
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL +
+                "/api/search?q=" +
+                encodeURIComponent(query)
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                "Search failed"
+            );
+
+        }
+
+
+        return data;
+
+    } catch (error) {
+
+        console.error(
+            "Search error:",
+            error
+        );
+
+
+        return {
+
+            success: false,
+
+            available: false,
+
+            results: [],
+
+            message:
+                "The search service is currently unavailable."
+
+        };
+
+    }
+
+}
+
+
+// ==========================================
+// SEARCH DETECTION
+// ==========================================
+
+function isSearchRequest(text) {
+
+    const searchPhrases = [
+
+        "search for ",
+        "search ",
+        "look up ",
+        "look for ",
+        "find information about ",
+        "find info about ",
+        "find out about ",
+        "search the web for ",
+        "search the web ",
+        "google "
+
+    ];
+
+
+    for (
+        const phrase
+        of searchPhrases
+    ) {
+
+        if (
+            text.startsWith(phrase)
+        ) {
+
+            return true;
+
+        }
+
+    }
+
+
+    return false;
+
+}
+
+
+// ==========================================
+// GET SEARCH QUERY
+// ==========================================
+
+function getSearchQuery(text) {
+
+    const searchPhrases = [
+
+        "search for ",
+        "search ",
+        "look up ",
+        "look for ",
+        "find information about ",
+        "find info about ",
+        "find out about ",
+        "search the web for ",
+        "search the web ",
+        "google "
+
+    ];
+
+
+    for (
+        const phrase
+        of searchPhrases
+    ) {
+
+        if (
+            text.startsWith(phrase)
+        ) {
+
+            return text
+                .substring(
+                    phrase.length
+                )
+                .trim();
+
+        }
+
+    }
+
+
+    return text.trim();
+
 }
 
 
@@ -82,9 +345,11 @@ function randomResponse(responses) {
 
     return responses[
         Math.floor(
-            Math.random() * responses.length
+            Math.random() *
+            responses.length
         )
     ];
+
 }
 
 
@@ -95,26 +360,36 @@ function randomResponse(responses) {
 function updateThemeButton() {
 
     const button =
-        document.getElementById("themeButton");
+        document.getElementById(
+            "themeButton"
+        );
+
 
     if (!button) {
+
         return;
+
     }
+
 
     const lightMode =
         document.body.classList.contains(
             "light-mode"
         );
 
+
     if (lightMode) {
 
-        button.textContent = "🌙 Dark";
+        button.textContent =
+            "🌙 Dark";
 
     } else {
 
-        button.textContent = "☀️ Light";
+        button.textContent =
+            "☀️ Light";
 
     }
+
 }
 
 
@@ -124,17 +399,23 @@ function toggleTheme() {
         "light-mode"
     );
 
+
     const lightMode =
         document.body.classList.contains(
             "light-mode"
         );
 
+
     localStorage.setItem(
         "liminalTheme",
-        lightMode ? "light" : "dark"
+        lightMode
+            ? "light"
+            : "dark"
     );
 
+
     updateThemeButton();
+
 }
 
 
@@ -145,7 +426,10 @@ function loadTheme() {
             "liminalTheme"
         );
 
-    if (savedTheme === "light") {
+
+    if (
+        savedTheme === "light"
+    ) {
 
         document.body.classList.add(
             "light-mode"
@@ -153,7 +437,9 @@ function loadTheme() {
 
     }
 
+
     updateThemeButton();
+
 }
 
 
@@ -164,7 +450,7 @@ function loadTheme() {
 function normalizeText(text) {
 
     text =
-        String(text)
+        text
             .toLowerCase()
             .trim();
 
@@ -232,6 +518,7 @@ function normalizeText(text) {
 
 
     return text.trim();
+
 }
 
 
@@ -307,6 +594,7 @@ function levenshtein(a, b) {
 
 
     return matrix[b.length][a.length];
+
 }
 
 
@@ -326,6 +614,7 @@ function similarWord(word, target) {
 
 
     return distance <= maxDistance;
+
 }
 
 
@@ -337,7 +626,10 @@ function cleanMemoryKey(key) {
 
     key =
         normalizeText(key)
-            .replace(/[?!.]/g, "")
+            .replace(
+                /[?!.]/g,
+                ""
+            )
             .trim();
 
 
@@ -352,6 +644,7 @@ function cleanMemoryKey(key) {
 
 
     return key;
+
 }
 
 
@@ -359,19 +652,6 @@ function remember(key, value) {
 
     key =
         cleanMemoryKey(key);
-
-    value =
-        String(value).trim();
-
-
-    if (
-        !key ||
-        !value
-    ) {
-
-        return false;
-
-    }
 
 
     memory[key] =
@@ -384,8 +664,6 @@ function remember(key, value) {
 
     saveMemory();
 
-
-    return true;
 }
 
 
@@ -396,75 +674,12 @@ function getMemory(key) {
 
 
     return memory[key];
+
 }
 
 
 // ==========================================
-// NATURAL MEMORY VALIDATION
-// 0.65 HARDENING
-// ==========================================
-
-function isValidMemoryKey(key) {
-
-    key =
-        cleanMemoryKey(key);
-
-
-    if (!key) {
-        return false;
-    }
-
-
-    // Prevent obvious false positives such as:
-    // "my goodness is that cool"
-
-    const blockedKeys = [
-
-        "goodness",
-        "god",
-        "good",
-        "bad",
-        "funny",
-        "crazy",
-        "weird",
-        "sure",
-        "okay",
-        "fine",
-        "cool",
-        "right",
-        "wrong",
-        "that",
-        "this"
-
-    ];
-
-
-    if (
-        blockedKeys.includes(key)
-    ) {
-
-        return false;
-
-    }
-
-
-    // Memory keys should not be huge sentences.
-
-    if (
-        key.split(" ").length > 6
-    ) {
-
-        return false;
-
-    }
-
-
-    return true;
-}
-
-
-// ==========================================
-// CORRECTION SYSTEM
+// CORRECTIONS
 // ==========================================
 
 function isCorrection(text) {
@@ -507,6 +722,7 @@ function isCorrection(text) {
 
 
     return false;
+
 }
 
 
@@ -543,60 +759,65 @@ function handleCorrection(text) {
         );
 
 
-    // --------------------------------------
-    // "Actually, my X is Y"
-    // --------------------------------------
+    // DIRECT MEMORY CORRECTION
 
     if (
         correctionText.startsWith("my ") &&
         correctionText.includes(" is ")
     ) {
 
-        const separator =
-            correctionText.indexOf(" is ");
+        const parts =
+            correctionText.split(
+                " is "
+            );
 
 
         const key =
-            correctionText
-                .substring(3, separator)
+            parts[0]
+                .substring(3)
                 .trim();
 
 
         const value =
-            correctionText
-                .substring(separator + 4)
+            parts
+                .slice(1)
+                .join(" is ")
                 .trim();
 
 
         if (
-            isValidMemoryKey(key) &&
+            key &&
             value
         ) {
 
-            const cleanKey =
-                cleanMemoryKey(key);
-
-
             const oldValue =
-                memory[cleanKey];
+                memory[key];
 
 
-            remember(
-                cleanKey,
-                value
-            );
+            memory[key] =
+                value;
+
+
+            lastTopic =
+                key;
+
+
+            saveMemory();
 
 
             corrections.push({
 
-                type: "memory_update",
+                type:
+                    "memory_update",
 
-                key: cleanKey,
+                key:
+                    key,
 
                 oldValue:
                     oldValue || null,
 
-                newValue: value,
+                newValue:
+                    value,
 
                 time:
                     new Date().toISOString()
@@ -616,37 +837,58 @@ function handleCorrection(text) {
                 oldValue
             ) {
 
-                return "You're right! I'll update my memory. Your " +
-                    escapeHTML(cleanKey) +
+                return (
+                    "You're right! I'll update my memory. " +
+                    "Your " +
+                    key +
                     " is now " +
-                    escapeHTML(value) +
-                    ".";
+                    value +
+                    "."
+                );
 
             }
 
 
-            return "Got it! I'll remember that your " +
-                escapeHTML(cleanKey) +
+            return (
+                "Got it! I'll remember that your " +
+                key +
                 " is " +
-                escapeHTML(value) +
-                ".";
+                value +
+                "."
+            );
 
         }
 
     }
 
 
-    // --------------------------------------
-    // "IT IS X"
-    // --------------------------------------
+    // IT IS / IT'S
 
     if (
         correctionText.startsWith("it is ") ||
         correctionText.startsWith("it's ")
     ) {
 
-        let value =
-            correctionText.substring(6).trim();
+        let value;
+
+
+        if (
+            correctionText.startsWith("it is ")
+        ) {
+
+            value =
+                correctionText.substring(6);
+
+        } else {
+
+            value =
+                correctionText.substring(6);
+
+        }
+
+
+        value =
+            value.trim();
 
 
         if (
@@ -658,15 +900,17 @@ function handleCorrection(text) {
                 memory[lastTopic];
 
 
-            remember(
-                lastTopic,
-                value
-            );
+            memory[lastTopic] =
+                value;
+
+
+            saveMemory();
 
 
             corrections.push({
 
-                type: "context_update",
+                type:
+                    "context_update",
 
                 key:
                     lastTopic,
@@ -691,20 +935,21 @@ function handleCorrection(text) {
             );
 
 
-            return "You're right! I've corrected my memory. Your " +
-                escapeHTML(lastTopic) +
+            return (
+                "You're right! I've corrected my memory. " +
+                "Your " +
+                lastTopic +
                 " is now " +
-                escapeHTML(value) +
-                ".";
+                value +
+                "."
+            );
 
         }
 
     }
 
 
-    // --------------------------------------
-    // "NO, YOU'RE WRONG"
-    // --------------------------------------
+    // GENERAL CORRECTION
 
     if (
         lastTopic &&
@@ -713,7 +958,8 @@ function handleCorrection(text) {
 
         corrections.push({
 
-            type: "response_correction",
+            type:
+                "response_correction",
 
             topic:
                 lastTopic,
@@ -738,9 +984,14 @@ function handleCorrection(text) {
         );
 
 
-        return "Got it. I know my previous answer was incorrect, but I need the correct information to update my memory. You can tell me by saying something like \"my " +
-            escapeHTML(lastTopic) +
-            " is ...\".";
+        return (
+            "Got it. I know my previous answer was incorrect, " +
+            "but I need the correct information to update my memory. " +
+            "You can tell me by saying something like " +
+            "\"my " +
+            lastTopic +
+            " is ...\"."
+        );
 
     }
 
@@ -750,7 +1001,11 @@ function handleCorrection(text) {
     );
 
 
-    return "Got it. I understand that my previous answer was wrong. Tell me what the correct answer is and I'll learn from it.";
+    return (
+        "Got it. I understand that my previous answer was wrong. " +
+        "Tell me what the correct answer is and I'll learn from it."
+    );
+
 }
 
 
@@ -767,8 +1022,12 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes("favorite color") ||
-        text.includes("what color do i like")
+        text.includes(
+            "favorite color"
+        ) ||
+        text.includes(
+            "what color do i like"
+        )
     ) {
 
         return "favorite color";
@@ -777,8 +1036,12 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes("favorite game") ||
-        text.includes("what game do i like")
+        text.includes(
+            "favorite game"
+        ) ||
+        text.includes(
+            "what game do i like"
+        )
     ) {
 
         return "favorite game";
@@ -787,8 +1050,12 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes("favorite food") ||
-        text.includes("what food do i like")
+        text.includes(
+            "favorite food"
+        ) ||
+        text.includes(
+            "what food do i like"
+        )
     ) {
 
         return "favorite food";
@@ -797,7 +1064,9 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes("my name")
+        text.includes(
+            "my name"
+        )
     ) {
 
         return "name";
@@ -806,8 +1075,12 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes("where do i live") ||
-        text.includes("my location")
+        text.includes(
+            "where do i live"
+        ) ||
+        text.includes(
+            "my location"
+        )
     ) {
 
         return "location";
@@ -816,6 +1089,7 @@ function findMemoryKey(text) {
 
 
     return null;
+
 }
 
 
@@ -839,7 +1113,10 @@ function needsClarification(text) {
     ];
 
 
-    return ambiguous.includes(text);
+    return ambiguous.includes(
+        text
+    );
+
 }
 
 
@@ -862,7 +1139,9 @@ function askClarification(text) {
         text === "what"
     ) {
 
-        return "What would you like me to tell you about?";
+        return (
+            "What would you like me to tell you about?"
+        );
 
     }
 
@@ -871,7 +1150,9 @@ function askClarification(text) {
         text === "why"
     ) {
 
-        return "What would you like me to explain why?";
+        return (
+            "What would you like me to explain why?"
+        );
 
     }
 
@@ -880,7 +1161,9 @@ function askClarification(text) {
         text === "how"
     ) {
 
-        return "What would you like to know how to do?";
+        return (
+            "What would you like to know how to do?"
+        );
 
     }
 
@@ -889,7 +1172,9 @@ function askClarification(text) {
         text === "which"
     ) {
 
-        return "Which things are you comparing?";
+        return (
+            "Which things are you comparing?"
+        );
 
     }
 
@@ -898,7 +1183,9 @@ function askClarification(text) {
         text === "when"
     ) {
 
-        return "When are you asking about?";
+        return (
+            "When are you asking about?"
+        );
 
     }
 
@@ -907,12 +1194,17 @@ function askClarification(text) {
         text === "where"
     ) {
 
-        return "Where are you asking about?";
+        return (
+            "Where are you asking about?"
+        );
 
     }
 
 
-    return "Could you give me a little more detail?";
+    return (
+        "Could you give me a little more detail?"
+    );
+
 }
 
 
@@ -991,7 +1283,11 @@ function smartUnknown(text) {
         );
 
 
-        return "I think you're asking about something I remember. Try asking me something like \"what is my favorite color?\"";
+        return (
+            "I think you're asking about something I remember. " +
+            "Try asking me something like " +
+            "\"what is my favorite color?\""
+        );
 
     }
 
@@ -1015,7 +1311,8 @@ function smartUnknown(text) {
 
 
     for (
-        const word of words
+        const word
+        of words
     ) {
 
         for (
@@ -1035,7 +1332,10 @@ function smartUnknown(text) {
                 );
 
 
-                return "I think you're asking about the time. Try asking \"what time is it?\"";
+                return (
+                    "I think you're asking about the time. " +
+                    "Try asking \"what time is it?\""
+                );
 
             }
 
@@ -1059,7 +1359,10 @@ function smartUnknown(text) {
                 );
 
 
-                return "I think you're asking about the date. Try asking \"what is the date?\"";
+                return (
+                    "I think you're asking about the date. " +
+                    "Try asking \"what is the date?\""
+                );
 
             }
 
@@ -1083,7 +1386,10 @@ function smartUnknown(text) {
         );
 
 
-        return "I think you want a joke. Try asking \"tell me a joke.\"";
+        return (
+            "I think you want a joke. " +
+            "Try asking \"tell me a joke.\""
+        );
 
     }
 
@@ -1093,7 +1399,10 @@ function smartUnknown(text) {
     );
 
 
-    return "I'm not sure what you mean. Could you rephrase that?";
+    return (
+        "I'm not sure what you mean. Could you rephrase that?"
+    );
+
 }
 
 
@@ -1114,9 +1423,7 @@ function think(originalText) {
     );
 
 
-    // ======================================
     // CORRECTIONS
-    // ======================================
 
     if (
         isCorrection(text)
@@ -1129,12 +1436,12 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // CLARIFICATION
-    // ======================================
 
     if (
-        needsClarification(text)
+        needsClarification(
+            text
+        )
     ) {
 
         return askClarification(
@@ -1148,98 +1455,85 @@ function think(originalText) {
         false;
 
 
-    // ======================================
     // TIME
-    // ======================================
 
     if (
-
-        text.includes("what time is it") ||
+        text.includes(
+            "what time is it"
+        ) ||
         text === "time" ||
-        text.includes("current time")
-
+        text.includes(
+            "current time"
+        )
     ) {
 
         const now =
             new Date();
 
 
-        setConfidence(
-            "high"
-        );
-
-
-        return "The current time is " +
-
+        return (
+            "The current time is " +
             now.toLocaleTimeString(
                 [],
                 {
-                    hour: "2-digit",
-                    minute: "2-digit"
+                    hour:
+                        "2-digit",
+                    minute:
+                        "2-digit"
                 }
             ) +
-
-            ".";
+            "."
+        );
 
     }
 
 
-    // ======================================
     // DATE
-    // ======================================
 
     if (
-
-        text.includes("what is the date") ||
+        text.includes(
+            "what is the date"
+        ) ||
         text === "date" ||
-        text.includes("what day is it")
-
+        text.includes(
+            "what day is it"
+        )
     ) {
 
         const now =
             new Date();
 
 
-        setConfidence(
-            "high"
-        );
-
-
-        return "Today is " +
-
+        return (
+            "Today is " +
             now.toLocaleDateString(
                 [],
                 {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric"
+                    weekday:
+                        "long",
+                    year:
+                        "numeric",
+                    month:
+                        "long",
+                    day:
+                        "numeric"
                 }
             ) +
-
-            ".";
+            "."
+        );
 
     }
 
 
-    // ======================================
     // GREETINGS
-    // ======================================
 
     if (
-
         text === "hello" ||
         text === "hi" ||
         text === "hey" ||
         text === "hello there" ||
         text === "hey there"
-
     ) {
-
-        setConfidence(
-            "high"
-        );
-
 
         return randomResponse([
 
@@ -1254,21 +1548,16 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // HOW ARE YOU
-    // ======================================
 
     if (
-
-        text.includes("how are you") ||
-        text.includes("how is it going")
-
+        text.includes(
+            "how are you"
+        ) ||
+        text.includes(
+            "how is it going"
+        )
     ) {
-
-        setConfidence(
-            "high"
-        );
-
 
         return randomResponse([
 
@@ -1283,43 +1572,37 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // NAME
-    // ======================================
 
     if (
-
-        text.includes("what is your name") ||
-        text.includes("who are you")
-
+        text.includes(
+            "what is your name"
+        ) ||
+        text.includes(
+            "who are you"
+        )
     ) {
 
-        setConfidence(
-            "high"
+        return (
+            "I'm Liminal AI 0.7."
         );
-
-
-        return "I'm Liminal AI 0.65.";
 
     }
 
 
-    // ======================================
     // CREATOR
-    // ======================================
 
     if (
-
-        text.includes("who made you") ||
-        text.includes("who created you") ||
-        text.includes("who built you")
-
+        text.includes(
+            "who made you"
+        ) ||
+        text.includes(
+            "who created you"
+        ) ||
+        text.includes(
+            "who built you"
+        )
     ) {
-
-        setConfidence(
-            "high"
-        );
-
 
         return randomResponse([
 
@@ -1333,22 +1616,17 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // JOKES
-    // ======================================
 
     if (
-
-        text.includes("tell me a joke") ||
-        text.includes("make me laugh") ||
+        text.includes(
+            "tell me a joke"
+        ) ||
+        text.includes(
+            "make me laugh"
+        ) ||
         text === "joke"
-
     ) {
-
-        setConfidence(
-            "high"
-        );
-
 
         const jokes = [
 
@@ -1370,103 +1648,40 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // REMEMBER THAT
-    // ======================================
 
     if (
-        text.startsWith("remember that ")
+        text.startsWith(
+            "remember that "
+        )
     ) {
 
         const information =
-            text.substring(14).trim();
+            text.substring(
+                14
+            ).trim();
 
 
-        const separator =
-            information.indexOf(" is ");
+        const parts =
+            information.split(
+                " is "
+            );
 
 
         if (
-            separator !== -1
+            parts.length >= 2
         ) {
 
             const key =
-                information
-                    .substring(0, separator)
-                    .trim();
+                parts[0].trim();
 
 
             const value =
-                information
-                    .substring(separator + 4)
+                parts
+                    .slice(1)
+                    .join(" is ")
                     .trim();
 
-
-            if (
-                isValidMemoryKey(key) &&
-                value
-            ) {
-
-                remember(
-                    key,
-                    value
-                );
-
-
-                setConfidence(
-                    "high"
-                );
-
-
-                return "I'll remember that your " +
-                    escapeHTML(
-                        cleanMemoryKey(key)
-                    ) +
-                    " is " +
-                    escapeHTML(value) +
-                    ".";
-
-            }
-
-        }
-
-
-        return "Try saying: remember that my favorite color is yellow.";
-
-    }
-
-
-    // ======================================
-    // NATURAL MEMORY
-    // ======================================
-
-    if (
-
-        text.startsWith("my ") &&
-        text.includes(" is ")
-
-    ) {
-
-        const separator =
-            text.indexOf(" is ");
-
-
-        const key =
-            text
-                .substring(3, separator)
-                .trim();
-
-
-        const value =
-            text
-                .substring(separator + 4)
-                .trim();
-
-
-        if (
-            isValidMemoryKey(key) &&
-            value
-        ) {
 
             remember(
                 key,
@@ -1474,35 +1689,87 @@ function think(originalText) {
             );
 
 
-            setConfidence(
-                "high"
-            );
-
-
-            return "Got it. I'll remember that your " +
-                escapeHTML(
-                    cleanMemoryKey(key)
+            return (
+                "I'll remember that your " +
+                cleanMemoryKey(
+                    key
                 ) +
                 " is " +
-                escapeHTML(value) +
-                ".";
+                value +
+                "."
+            );
 
         }
+
+
+        return (
+            "Try saying: remember that my favorite color is yellow."
+        );
 
     }
 
 
-    // ======================================
-    // I AM
-    // ======================================
+    // NATURAL MEMORY
 
     if (
-        text.startsWith("i am ") &&
-        text.length > 5
+        text.startsWith(
+            "my "
+        ) &&
+        text.includes(
+            " is "
+        )
+    ) {
+
+        const parts =
+            text.split(
+                " is "
+            );
+
+
+        const key =
+            parts[0]
+                .substring(3)
+                .trim();
+
+
+        const value =
+            parts
+                .slice(1)
+                .join(" is ")
+                .trim();
+
+
+        remember(
+            key,
+            value
+        );
+
+
+        return (
+            "Got it. I'll remember that your " +
+            cleanMemoryKey(
+                key
+            ) +
+            " is " +
+            value +
+            "."
+        );
+
+    }
+
+
+    // I AM
+
+    if (
+        text.startsWith(
+            "i am "
+        )
     ) {
 
         const value =
-            text.substring(5).trim();
+            text.substring(
+                5
+            ).trim();
 
 
         remember(
@@ -1511,29 +1778,27 @@ function think(originalText) {
         );
 
 
-        setConfidence(
-            "high"
+        return (
+            "Got it. I'll remember that you are " +
+            value +
+            "."
         );
-
-
-        return "Got it. I'll remember that you are " +
-            escapeHTML(value) +
-            ".";
 
     }
 
 
-    // ======================================
     // I LIVE IN
-    // ======================================
 
     if (
-        text.startsWith("i live in ") &&
-        text.length > 10
+        text.startsWith(
+            "i live in "
+        )
     ) {
 
         const value =
-            text.substring(10).trim();
+            text.substring(
+                10
+            ).trim();
 
 
         remember(
@@ -1542,21 +1807,16 @@ function think(originalText) {
         );
 
 
-        setConfidence(
-            "high"
+        return (
+            "Got it. I'll remember that you live in " +
+            value +
+            "."
         );
-
-
-        return "Got it. I'll remember that you live in " +
-            escapeHTML(value) +
-            ".";
 
     }
 
 
-    // ======================================
     // MEMORY QUESTION
-    // ======================================
 
     const possibleKey =
         findMemoryKey(
@@ -1578,51 +1838,45 @@ function think(originalText) {
             value
         ) {
 
-            setConfidence(
-                "high"
-            );
-
-
             lastTopic =
                 possibleKey;
 
 
-            return "Your " +
-                escapeHTML(possibleKey) +
+            return (
+                "Your " +
+                possibleKey +
                 " is " +
-                escapeHTML(value) +
-                ".";
+                value +
+                "."
+            );
 
         }
 
 
-        setConfidence(
-            "high"
+        return (
+            "I don't remember your " +
+            possibleKey +
+            " yet."
         );
-
-
-        return "I don't remember your " +
-            escapeHTML(possibleKey) +
-            " yet.";
 
     }
 
 
-    // ======================================
     // WHAT IS MY
-    // ======================================
 
     if (
-
-        text.startsWith("what is my ") ||
-        text.startsWith("tell me my ")
-
+        text.startsWith(
+            "what is my "
+        ) ||
+        text.startsWith(
+            "tell me my "
+        )
     ) {
 
         const key =
-            text.startsWith("what is my ")
-                ? text.substring(11)
-                : text.substring(11);
+            text.substring(
+                11
+            );
 
 
         const cleanKey =
@@ -1645,64 +1899,53 @@ function think(originalText) {
                 cleanKey;
 
 
-            setConfidence(
-                "high"
-            );
-
-
-            return "Your " +
-                escapeHTML(cleanKey) +
+            return (
+                "Your " +
+                cleanKey +
                 " is " +
-                escapeHTML(value) +
-                ".";
+                value +
+                "."
+            );
 
         }
 
 
-        setConfidence(
-            "high"
+        return (
+            "I don't remember your " +
+            cleanKey +
+            " yet."
         );
-
-
-        return "I don't remember your " +
-            escapeHTML(cleanKey) +
-            " yet.";
 
     }
 
 
-    // ======================================
     // SHOW MEMORY
-    // ======================================
 
     if (
-
         text === "what do you remember" ||
         text === "show my memories" ||
         text === "what do you know about me"
-
     ) {
 
         const keys =
-            Object.keys(memory);
+            Object.keys(
+                memory
+            );
 
 
         if (
             keys.length === 0
         ) {
 
-            setConfidence(
-                "high"
+            return (
+                "I don't remember anything yet."
             );
-
-
-            return "I don't remember anything yet.";
 
         }
 
 
         let response =
-            "Here's what I remember:<br><br>";
+            "Here's what I remember:\n\n";
 
 
         keys.forEach(
@@ -1710,17 +1953,12 @@ function think(originalText) {
 
                 response +=
                     "• " +
-                    escapeHTML(key) +
+                    key +
                     " = " +
-                    escapeHTML(memory[key]) +
-                    "<br>";
+                    memory[key] +
+                    "\n";
 
             }
-        );
-
-
-        setConfidence(
-            "high"
         );
 
 
@@ -1729,34 +1967,27 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // SHOW CORRECTIONS
-    // ======================================
 
     if (
-
         text === "show corrections" ||
         text === "what have you learned" ||
         text === "show what you learned"
-
     ) {
 
         if (
             corrections.length === 0
         ) {
 
-            setConfidence(
-                "high"
+            return (
+                "I haven't learned any corrections yet."
             );
-
-
-            return "I haven't learned any corrections yet.";
 
         }
 
 
         let response =
-            "Here's what I've learned:<br><br>";
+            "Here's what I've learned:\n\n";
 
 
         corrections.forEach(
@@ -1768,30 +1999,28 @@ function think(originalText) {
 
                     response +=
                         "• " +
-                        escapeHTML(item.key) +
+                        item.key +
                         ": " +
-                        escapeHTML(
-                            item.oldValue || "unknown"
+                        (
+                            item.oldValue ||
+                            "unknown"
                         ) +
                         " → " +
-                        escapeHTML(item.newValue) +
-                        "<br>";
+                        item.newValue +
+                        "\n";
 
                 } else {
 
                     response +=
                         "• Correction " +
-                        (index + 1) +
-                        "<br>";
+                        (
+                            index + 1
+                        ) +
+                        "\n";
 
                 }
 
             }
-        );
-
-
-        setConfidence(
-            "high"
         );
 
 
@@ -1800,31 +2029,37 @@ function think(originalText) {
     }
 
 
-    // ======================================
     // FORGET
-    // ======================================
 
     if (
-
-        text.startsWith("forget my ") ||
-        text.startsWith("forget ")
-
+        text.startsWith(
+            "forget my "
+        ) ||
+        text.startsWith(
+            "forget "
+        )
     ) {
 
         let key;
 
 
         if (
-            text.startsWith("forget my ")
+            text.startsWith(
+                "forget my "
+            )
         ) {
 
             key =
-                text.substring(10);
+                text.substring(
+                    10
+                );
 
         } else {
 
             key =
-                text.substring(7);
+                text.substring(
+                    7
+                );
 
         }
 
@@ -1841,47 +2076,36 @@ function think(originalText) {
 
             delete memory[key];
 
-
             saveMemory();
 
 
-            setConfidence(
-                "high"
+            return (
+                "Okay, I forgot your " +
+                key +
+                "."
             );
-
-
-            return "Okay, I forgot your " +
-                escapeHTML(key) +
-                ".";
 
         }
 
 
-        setConfidence(
-            "high"
+        return (
+            "I don't have a memory about your " +
+            key +
+            "."
         );
-
-
-        return "I don't have a memory about your " +
-            escapeHTML(key) +
-            ".";
 
     }
 
 
-    // ======================================
     // CONTEXT
-    // ======================================
 
     if (
-
         text === "what is it" ||
         text === "what is that" ||
         text === "what was it" ||
         text === "what's it" ||
         text === "what's that" ||
         text === "tell me about it"
-
     ) {
 
         if (
@@ -1898,36 +2122,31 @@ function think(originalText) {
                 value
             ) {
 
-                setConfidence(
-                    "high"
-                );
-
-
-                return "Your " +
-                    escapeHTML(lastTopic) +
+                return (
+                    "Your " +
+                    lastTopic +
                     " is " +
-                    escapeHTML(value) +
-                    ".";
+                    value +
+                    "."
+                );
 
             }
 
         }
 
 
-        return "I'm not sure what \"it\" refers to yet.";
+        return (
+            "I'm not sure what \"it\" refers to yet."
+        );
 
     }
 
 
-    // ======================================
     // FOLLOW-UP
-    // ======================================
 
     if (
-
         text === "why" ||
         text === "how come"
-
     ) {
 
         if (
@@ -1939,9 +2158,12 @@ function think(originalText) {
             );
 
 
-            return "Because that's the information I currently have stored about your " +
-                escapeHTML(lastTopic) +
-                ".";
+            return (
+                "Because that's the information I currently " +
+                "have stored about your " +
+                lastTopic +
+                "."
+            );
 
         }
 
@@ -1951,16 +2173,16 @@ function think(originalText) {
         );
 
 
-        return "I'm not sure what you're referring to.";
+        return (
+            "I'm not sure what you're referring to."
+        );
 
     }
 
 
     if (
-
         text === "which one" ||
         text === "what one"
-
     ) {
 
         if (
@@ -1977,14 +2199,11 @@ function think(originalText) {
                 value
             ) {
 
-                setConfidence(
-                    "high"
+                return (
+                    "The one I remember is " +
+                    value +
+                    "."
                 );
-
-
-                return "The one I remember is " +
-                    escapeHTML(value) +
-                    ".";
 
             }
 
@@ -1996,14 +2215,14 @@ function think(originalText) {
         );
 
 
-        return "I'm not sure which one you mean.";
+        return (
+            "I'm not sure which one you mean."
+        );
 
     }
 
 
-    // ======================================
     // MATH
-    // ======================================
 
     if (
         text.match(
@@ -2021,14 +2240,11 @@ function think(originalText) {
                 )();
 
 
-            setConfidence(
-                "high"
+            return (
+                "The answer is " +
+                answer +
+                "."
             );
-
-
-            return "The answer is " +
-                escapeHTML(answer) +
-                ".";
 
         } catch (
             error
@@ -2039,20 +2255,33 @@ function think(originalText) {
             );
 
 
-            return "I couldn't calculate that.";
+            return (
+                "I couldn't calculate that."
+            );
 
         }
 
     }
 
 
-    // ======================================
     // UNKNOWN
-    // ======================================
 
     return smartUnknown(
         text
     );
+
+}
+
+
+// ==========================================
+// DISPLAY RESPONSE SAFELY
+// ==========================================
+
+function displayAIResponse(element, text) {
+
+    element.textContent =
+        text;
+
 }
 
 
@@ -2060,7 +2289,7 @@ function think(originalText) {
 // SEND MESSAGE
 // ==========================================
 
-function sendMessage() {
+async function sendMessage() {
 
     const input =
         document.getElementById(
@@ -2084,17 +2313,23 @@ function sendMessage() {
     }
 
 
-    const text =
+    const originalText =
         input.value.trim();
 
 
     if (
-        text === ""
+        originalText === ""
     ) {
 
         return;
 
     }
+
+
+    const normalized =
+        normalizeText(
+            originalText
+        );
 
 
     // ======================================
@@ -2111,12 +2346,8 @@ function sendMessage() {
         "user";
 
 
-    // textContent is intentionally used here.
-    // It prevents HTML entered by the user
-    // from becoming actual HTML.
-
     userMessage.textContent =
-        text;
+        originalText;
 
 
     messages.appendChild(
@@ -2124,13 +2355,16 @@ function sendMessage() {
     );
 
 
+    input.value = "";
+
+
+    messages.scrollTop =
+        messages.scrollHeight;
+
+
     // ======================================
     // AI MESSAGE
     // ======================================
-
-    const response =
-        think(text);
-
 
     const aiMessage =
         document.createElement(
@@ -2142,13 +2376,8 @@ function sendMessage() {
         "ai";
 
 
-    // Responses created by think() are already
-    // escaped where user-controlled content
-    // appears. <br> is intentionally allowed
-    // for memory lists.
-
-    aiMessage.innerHTML =
-        response;
+    aiMessage.textContent =
+        "Thinking... 🤔";
 
 
     messages.appendChild(
@@ -2156,27 +2385,260 @@ function sendMessage() {
     );
 
 
-    // ======================================
-    // CLEAR INPUT
-    // ======================================
-
-    input.value = "";
-
-
-    // ======================================
-    // SCROLL
-    // ======================================
-
     messages.scrollTop =
         messages.scrollHeight;
 
 
     // ======================================
-    // SAVE LAST RESPONSE
+    // SEARCH REQUEST
     // ======================================
 
-    lastResponse =
-        aiMessage.innerText;
+    if (
+        isSearchRequest(
+            normalized
+        )
+    ) {
+
+        const query =
+            getSearchQuery(
+                normalized
+            );
+
+
+        if (
+            query
+        ) {
+
+            aiMessage.textContent =
+                "Searching... 🌐";
+
+
+            const searchResult =
+                await searchWeb(
+                    query
+                );
+
+
+            if (
+                searchResult.success &&
+                searchResult.available
+            ) {
+
+                let response =
+                    "Search results for: " +
+                    query +
+                    "\n\n";
+
+
+                if (
+                    searchResult.results &&
+                    searchResult.results.length > 0
+                ) {
+
+                    searchResult.results.forEach(
+                        function(result, index) {
+
+                            response +=
+                                (
+                                    index + 1
+                                ) +
+                                ". " +
+                                (
+                                    result.title ||
+                                    "Untitled result"
+                                ) +
+                                "\n";
+
+
+                            if (
+                                result.snippet
+                            ) {
+
+                                response +=
+                                    result.snippet +
+                                    "\n";
+
+                            }
+
+
+                            if (
+                                result.url
+                            ) {
+
+                                response +=
+                                    result.url +
+                                    "\n";
+
+                            }
+
+
+                            response +=
+                                "\n";
+
+                        }
+                    );
+
+                } else {
+
+                    response +=
+                        "No results were found.";
+
+                }
+
+
+                displayAIResponse(
+                    aiMessage,
+                    response
+                );
+
+
+                lastResponse =
+                    response;
+
+
+            } else {
+
+                displayAIResponse(
+                    aiMessage,
+                    "The search endpoint is working, but a real search provider hasn't been connected yet. 🌐"
+                );
+
+
+                lastResponse =
+                    aiMessage.innerText;
+
+            }
+
+
+            messages.scrollTop =
+                messages.scrollHeight;
+
+
+            console.log(
+                "Liminal confidence:",
+                lastConfidence
+            );
+
+
+            return;
+
+        }
+
+    }
+
+
+    // ======================================
+    // BACKEND CHAT
+    // ======================================
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL +
+                "/api/chat",
+                {
+
+                    method:
+                        "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            message:
+                                originalText
+
+                        })
+
+                }
+            );
+
+
+        if (
+            !response.ok
+        ) {
+
+            throw new Error(
+                "Backend returned " +
+                response.status
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            data.success &&
+            data.reply
+        ) {
+
+            displayAIResponse(
+                aiMessage,
+                data.reply
+            );
+
+
+            lastResponse =
+                data.reply;
+
+
+            setConfidence(
+                "high"
+            );
+
+        } else {
+
+            throw new Error(
+                "Invalid backend response"
+            );
+
+        }
+
+
+    } catch (
+        error
+    ) {
+
+        console.warn(
+            "Backend unavailable. Using local Liminal AI."
+        );
+
+
+        console.error(
+            error
+        );
+
+
+        const localReply =
+            think(
+                originalText
+            );
+
+
+        displayAIResponse(
+            aiMessage,
+            localReply
+        );
+
+
+        lastResponse =
+            localReply;
+
+    }
+
+
+    messages.scrollTop =
+        messages.scrollHeight;
 
 
     console.log(
@@ -2210,7 +2672,8 @@ document.addEventListener(
                 function(event) {
 
                     if (
-                        event.key === "Enter"
+                        event.key ===
+                        "Enter"
                     ) {
 
                         sendMessage();
@@ -2224,6 +2687,12 @@ document.addEventListener(
 
 
         loadTheme();
+
+
+        testBackend();
+
+
+        getBackendInfo();
 
     }
 );
@@ -2264,7 +2733,7 @@ function clearChat() {
 
 
     welcome.textContent =
-        "Hello! I'm Liminal AI 0.65.";
+        "Hello! I'm Liminal AI 0.7.";
 
 
     messages.appendChild(
@@ -2272,11 +2741,20 @@ function clearChat() {
     );
 
 
-    lastTopic = null;
-    lastResponse = "";
-    lastAction = null;
-    lastQuestion = "";
-    waitingForClarification = false;
+    lastTopic =
+        null;
+
+    lastResponse =
+        "";
+
+    lastAction =
+        null;
+
+    lastQuestion =
+        "";
+
+    waitingForClarification =
+        false;
 
 }
 

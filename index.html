@@ -1,79 +1,28 @@
 
 <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
+name="viewport"
+content="width=device-width, initial-scale=1.0"
 >
 
-<title>Liminal AI 0.65</title>
+<!-- HEADER -->
 
-<link
-    rel="stylesheet"
-    href="style.css"
->
+<div id="header">
 
-
-<div id="chat">
-
-    <!-- HEADER -->
-
-    <div id="header">
-
-        <div id="title">
-            🤖 Liminal AI 0.65
-        </div>
-
-        <div id="headerControls">
-
-            <div id="status">
-                🟢 Online
-            </div>
-
-            <button
-                id="themeButton"
-                onclick="toggleTheme()"
-            >
-                ☀️ Light
-            </button>
-
-        </div>
-
+    <div id="title">
+        🤖 Liminal AI 0.7
     </div>
 
+    <div id="headerControls">
 
-    <!-- MESSAGES -->
-
-    <div id="messages">
-
-        <div class="ai">
-            Hello! I'm Liminal AI 0.65.
+        <div id="status">
+            🟢 Online
         </div>
 
-    </div>
-
-
-    <!-- INPUT -->
-
-    <div id="inputArea">
-
-        <input
-            type="text"
-            id="userInput"
-            placeholder="Ask me anything..."
-            autocomplete="off"
-        >
-
         <button
-            id="sendButton"
-            onclick="sendMessage()"
+            id="themeButton"
+            onclick="toggleTheme()"
         >
-            Send
-        </button>
-
-        <button
-            id="clearButton"
-            onclick="clearChat()"
-        >
-            Clear
+            ☀️ Light
         </button>
 
     </div>
@@ -81,5 +30,41 @@
 </div>
 
 
-<script src="script.js"></script>
+<!-- MESSAGES -->
+
+<div id="messages">
+
+    <div class="ai">
+        Hello! I'm Liminal AI 0.7.
+    </div>
+
+</div>
+
+
+<!-- INPUT -->
+
+<div id="inputArea">
+
+    <input
+        type="text"
+        id="userInput"
+        placeholder="Ask me anything..."
+        autocomplete="off"
+    >
+
+    <button
+        id="sendButton"
+        onclick="sendMessage()"
+    >
+        Send
+    </button>
+
+    <button
+        id="clearButton"
+        onclick="clearChat()"
+    >
+        Clear
+    </button>
+
+</div>
 
