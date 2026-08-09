@@ -8,7 +8,7 @@
 // BACKEND
 // ==========================================
 
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "https://liminal-ai-backend.onrender.com";
 
 
 // ==========================================
