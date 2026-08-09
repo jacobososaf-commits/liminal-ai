@@ -1,6 +1,6 @@
 // ==========================================
-// LIMINAL AI 0.6
-// CONFIDENCE + CORRECTIONS
+// LIMINAL AI 0.65
+// HARDENING + CONFIDENCE + CORRECTIONS
 // ==========================================
 
 
@@ -12,12 +12,10 @@ let memory =
     JSON.parse(localStorage.getItem("liminalMemory")) || {};
 
 function saveMemory() {
-
     localStorage.setItem(
         "liminalMemory",
         JSON.stringify(memory)
     );
-
 }
 
 
@@ -31,12 +29,26 @@ let corrections =
     ) || [];
 
 function saveCorrections() {
-
     localStorage.setItem(
         "liminalCorrections",
         JSON.stringify(corrections)
     );
+}
 
+
+// ==========================================
+// SECURITY
+// Escape text before putting it into HTML
+// ==========================================
+
+function escapeHTML(value) {
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 
@@ -58,9 +70,7 @@ let waitingForClarification = false;
 let lastConfidence = "high";
 
 function setConfidence(level) {
-
     lastConfidence = level;
-
 }
 
 
@@ -75,7 +85,6 @@ function randomResponse(responses) {
             Math.random() * responses.length
         )
     ];
-
 }
 
 
@@ -106,7 +115,6 @@ function updateThemeButton() {
         button.textContent = "☀️ Light";
 
     }
-
 }
 
 
@@ -123,13 +131,10 @@ function toggleTheme() {
 
     localStorage.setItem(
         "liminalTheme",
-        lightMode
-            ? "light"
-            : "dark"
+        lightMode ? "light" : "dark"
     );
 
     updateThemeButton();
-
 }
 
 
@@ -140,9 +145,7 @@ function loadTheme() {
             "liminalTheme"
         );
 
-    if (
-        savedTheme === "light"
-    ) {
+    if (savedTheme === "light") {
 
         document.body.classList.add(
             "light-mode"
@@ -151,7 +154,6 @@ function loadTheme() {
     }
 
     updateThemeButton();
-
 }
 
 
@@ -162,7 +164,7 @@ function loadTheme() {
 function normalizeText(text) {
 
     text =
-        text
+        String(text)
             .toLowerCase()
             .trim();
 
@@ -230,7 +232,6 @@ function normalizeText(text) {
 
 
     return text.trim();
-
 }
 
 
@@ -306,7 +307,6 @@ function levenshtein(a, b) {
 
 
     return matrix[b.length][a.length];
-
 }
 
 
@@ -326,7 +326,6 @@ function similarWord(word, target) {
 
 
     return distance <= maxDistance;
-
 }
 
 
@@ -353,7 +352,6 @@ function cleanMemoryKey(key) {
 
 
     return key;
-
 }
 
 
@@ -361,6 +359,19 @@ function remember(key, value) {
 
     key =
         cleanMemoryKey(key);
+
+    value =
+        String(value).trim();
+
+
+    if (
+        !key ||
+        !value
+    ) {
+
+        return false;
+
+    }
 
 
     memory[key] =
@@ -373,6 +384,8 @@ function remember(key, value) {
 
     saveMemory();
 
+
+    return true;
 }
 
 
@@ -383,7 +396,70 @@ function getMemory(key) {
 
 
     return memory[key];
+}
 
+
+// ==========================================
+// NATURAL MEMORY VALIDATION
+// 0.65 HARDENING
+// ==========================================
+
+function isValidMemoryKey(key) {
+
+    key =
+        cleanMemoryKey(key);
+
+
+    if (!key) {
+        return false;
+    }
+
+
+    // Prevent obvious false positives such as:
+    // "my goodness is that cool"
+
+    const blockedKeys = [
+
+        "goodness",
+        "god",
+        "good",
+        "bad",
+        "funny",
+        "crazy",
+        "weird",
+        "sure",
+        "okay",
+        "fine",
+        "cool",
+        "right",
+        "wrong",
+        "that",
+        "this"
+
+    ];
+
+
+    if (
+        blockedKeys.includes(key)
+    ) {
+
+        return false;
+
+    }
+
+
+    // Memory keys should not be huge sentences.
+
+    if (
+        key.split(" ").length > 6
+    ) {
+
+        return false;
+
+    }
+
+
+    return true;
 }
 
 
@@ -431,7 +507,6 @@ function isCorrection(text) {
 
 
     return false;
-
 }
 
 
@@ -440,10 +515,6 @@ function handleCorrection(text) {
     const original =
         text.trim();
 
-
-    // --------------------------------------
-    // "Actually, my X is Y"
-    // --------------------------------------
 
     let correctionText =
         original
@@ -473,62 +544,54 @@ function handleCorrection(text) {
 
 
     // --------------------------------------
-    // DIRECT MEMORY CORRECTION
+    // "Actually, my X is Y"
     // --------------------------------------
 
     if (
-        correctionText.startsWith(
-            "my "
-        ) &&
-        correctionText.includes(
-            " is "
-        )
+        correctionText.startsWith("my ") &&
+        correctionText.includes(" is ")
     ) {
 
-        const parts =
-            correctionText.split(
-                " is "
-            );
+        const separator =
+            correctionText.indexOf(" is ");
 
 
         const key =
-            parts[0]
-                .substring(3)
+            correctionText
+                .substring(3, separator)
                 .trim();
 
 
         const value =
-            parts
-                .slice(1)
-                .join(" is ")
+            correctionText
+                .substring(separator + 4)
                 .trim();
 
 
         if (
-            key &&
+            isValidMemoryKey(key) &&
             value
         ) {
 
+            const cleanKey =
+                cleanMemoryKey(key);
+
+
             const oldValue =
-                memory[key];
+                memory[cleanKey];
 
 
-            memory[key] =
-                value;
-
-
-            lastTopic =
-                key;
-
-
-            saveMemory();
+            remember(
+                cleanKey,
+                value
+            );
 
 
             corrections.push({
 
                 type: "memory_update",
 
-                key: key,
+                key: cleanKey,
 
                 oldValue:
                     oldValue || null,
@@ -554,18 +617,18 @@ function handleCorrection(text) {
             ) {
 
                 return "You're right! I'll update my memory. Your " +
-                    key +
+                    escapeHTML(cleanKey) +
                     " is now " +
-                    value +
+                    escapeHTML(value) +
                     ".";
 
             }
 
 
             return "Got it! I'll remember that your " +
-                key +
+                escapeHTML(cleanKey) +
                 " is " +
-                value +
+                escapeHTML(value) +
                 ".";
 
         }
@@ -574,44 +637,16 @@ function handleCorrection(text) {
 
 
     // --------------------------------------
-    // "NO, IT'S X"
+    // "IT IS X"
     // --------------------------------------
 
     if (
-        correctionText.startsWith(
-            "it is "
-        ) ||
-        correctionText.startsWith(
-            "it's "
-        )
+        correctionText.startsWith("it is ") ||
+        correctionText.startsWith("it's ")
     ) {
 
-        let value;
-
-
-        if (
-            correctionText.startsWith(
-                "it is "
-            )
-        ) {
-
-            value =
-                correctionText.substring(
-                    6
-                );
-
-        } else {
-
-            value =
-                correctionText.substring(
-                    6
-                );
-
-        }
-
-
-        value =
-            value.trim();
+        let value =
+            correctionText.substring(6).trim();
 
 
         if (
@@ -623,11 +658,10 @@ function handleCorrection(text) {
                 memory[lastTopic];
 
 
-            memory[lastTopic] =
-                value;
-
-
-            saveMemory();
+            remember(
+                lastTopic,
+                value
+            );
 
 
             corrections.push({
@@ -658,9 +692,9 @@ function handleCorrection(text) {
 
 
             return "You're right! I've corrected my memory. Your " +
-                lastTopic +
+                escapeHTML(lastTopic) +
                 " is now " +
-                value +
+                escapeHTML(value) +
                 ".";
 
         }
@@ -705,7 +739,7 @@ function handleCorrection(text) {
 
 
         return "Got it. I know my previous answer was incorrect, but I need the correct information to update my memory. You can tell me by saying something like \"my " +
-            lastTopic +
+            escapeHTML(lastTopic) +
             " is ...\".";
 
     }
@@ -717,7 +751,6 @@ function handleCorrection(text) {
 
 
     return "Got it. I understand that my previous answer was wrong. Tell me what the correct answer is and I'll learn from it.";
-
 }
 
 
@@ -734,12 +767,8 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes(
-            "favorite color"
-        ) ||
-        text.includes(
-            "what color do i like"
-        )
+        text.includes("favorite color") ||
+        text.includes("what color do i like")
     ) {
 
         return "favorite color";
@@ -748,12 +777,8 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes(
-            "favorite game"
-        ) ||
-        text.includes(
-            "what game do i like"
-        )
+        text.includes("favorite game") ||
+        text.includes("what game do i like")
     ) {
 
         return "favorite game";
@@ -762,12 +787,8 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes(
-            "favorite food"
-        ) ||
-        text.includes(
-            "what food do i like"
-        )
+        text.includes("favorite food") ||
+        text.includes("what food do i like")
     ) {
 
         return "favorite food";
@@ -776,9 +797,7 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes(
-            "my name"
-        )
+        text.includes("my name")
     ) {
 
         return "name";
@@ -787,12 +806,8 @@ function findMemoryKey(text) {
 
 
     if (
-        text.includes(
-            "where do i live"
-        ) ||
-        text.includes(
-            "my location"
-        )
+        text.includes("where do i live") ||
+        text.includes("my location")
     ) {
 
         return "location";
@@ -801,7 +816,6 @@ function findMemoryKey(text) {
 
 
     return null;
-
 }
 
 
@@ -825,19 +839,7 @@ function needsClarification(text) {
     ];
 
 
-    if (
-        ambiguous.includes(
-            text
-        )
-    ) {
-
-        return true;
-
-    }
-
-
-    return false;
-
+    return ambiguous.includes(text);
 }
 
 
@@ -911,7 +913,6 @@ function askClarification(text) {
 
 
     return "Could you give me a little more detail?";
-
 }
 
 
@@ -1093,7 +1094,6 @@ function smartUnknown(text) {
 
 
     return "I'm not sure what you mean. Could you rephrase that?";
-
 }
 
 
@@ -1134,9 +1134,7 @@ function think(originalText) {
     // ======================================
 
     if (
-        needsClarification(
-            text
-        )
+        needsClarification(text)
     ) {
 
         return askClarification(
@@ -1156,15 +1154,9 @@ function think(originalText) {
 
     if (
 
-        text.includes(
-            "what time is it"
-        ) ||
-
+        text.includes("what time is it") ||
         text === "time" ||
-
-        text.includes(
-            "current time"
-        )
+        text.includes("current time")
 
     ) {
 
@@ -1198,15 +1190,9 @@ function think(originalText) {
 
     if (
 
-        text.includes(
-            "what is the date"
-        ) ||
-
+        text.includes("what is the date") ||
         text === "date" ||
-
-        text.includes(
-            "what day is it"
-        )
+        text.includes("what day is it")
 
     ) {
 
@@ -1274,13 +1260,8 @@ function think(originalText) {
 
     if (
 
-        text.includes(
-            "how are you"
-        ) ||
-
-        text.includes(
-            "how is it going"
-        )
+        text.includes("how are you") ||
+        text.includes("how is it going")
 
     ) {
 
@@ -1308,13 +1289,8 @@ function think(originalText) {
 
     if (
 
-        text.includes(
-            "what is your name"
-        ) ||
-
-        text.includes(
-            "who are you"
-        )
+        text.includes("what is your name") ||
+        text.includes("who are you")
 
     ) {
 
@@ -1323,7 +1299,7 @@ function think(originalText) {
         );
 
 
-        return "I'm Liminal AI 0.6.";
+        return "I'm Liminal AI 0.65.";
 
     }
 
@@ -1334,17 +1310,9 @@ function think(originalText) {
 
     if (
 
-        text.includes(
-            "who made you"
-        ) ||
-
-        text.includes(
-            "who created you"
-        ) ||
-
-        text.includes(
-            "who built you"
-        )
+        text.includes("who made you") ||
+        text.includes("who created you") ||
+        text.includes("who built you")
 
     ) {
 
@@ -1371,14 +1339,8 @@ function think(originalText) {
 
     if (
 
-        text.includes(
-            "tell me a joke"
-        ) ||
-
-        text.includes(
-            "make me laugh"
-        ) ||
-
+        text.includes("tell me a joke") ||
+        text.includes("make me laugh") ||
         text === "joke"
 
     ) {
@@ -1413,60 +1375,58 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith(
-            "remember that "
-        )
+        text.startsWith("remember that ")
     ) {
 
         const information =
-            text.substring(
-                14
-            ).trim();
+            text.substring(14).trim();
 
 
-        const parts =
-            information.split(
-                " is "
-            );
+        const separator =
+            information.indexOf(" is ");
 
 
         if (
-            parts.length >= 2
+            separator !== -1
         ) {
 
             const key =
-                parts[0].trim();
-
-
-            const value =
-                parts
-                    .slice(1)
-                    .join(" is ")
+                information
+                    .substring(0, separator)
                     .trim();
 
 
-            remember(
-                key,
+            const value =
+                information
+                    .substring(separator + 4)
+                    .trim();
+
+
+            if (
+                isValidMemoryKey(key) &&
                 value
-            );
+            ) {
+
+                remember(
+                    key,
+                    value
+                );
 
 
-            setConfidence(
-                "high"
-            );
+                setConfidence(
+                    "high"
+                );
 
 
-            return "I'll remember that your " +
+                return "I'll remember that your " +
+                    escapeHTML(
+                        cleanMemoryKey(key)
+                    ) +
+                    " is " +
+                    escapeHTML(value) +
+                    ".";
 
-                cleanMemoryKey(
-                    key
-                ) +
-
-                " is " +
-
-                value +
-
-                ".";
+            }
 
         }
 
@@ -1482,57 +1442,52 @@ function think(originalText) {
 
     if (
 
-        text.startsWith(
-            "my "
-        ) &&
-
-        text.includes(
-            " is "
-        )
+        text.startsWith("my ") &&
+        text.includes(" is ")
 
     ) {
 
-        const parts =
-            text.split(
-                " is "
-            );
+        const separator =
+            text.indexOf(" is ");
 
 
         const key =
-            parts[0]
-                .substring(3)
+            text
+                .substring(3, separator)
                 .trim();
 
 
         const value =
-            parts
-                .slice(1)
-                .join(" is ")
+            text
+                .substring(separator + 4)
                 .trim();
 
 
-        remember(
-            key,
+        if (
+            isValidMemoryKey(key) &&
             value
-        );
+        ) {
+
+            remember(
+                key,
+                value
+            );
 
 
-        setConfidence(
-            "high"
-        );
+            setConfidence(
+                "high"
+            );
 
 
-        return "Got it. I'll remember that your " +
+            return "Got it. I'll remember that your " +
+                escapeHTML(
+                    cleanMemoryKey(key)
+                ) +
+                " is " +
+                escapeHTML(value) +
+                ".";
 
-            cleanMemoryKey(
-                key
-            ) +
-
-            " is " +
-
-            value +
-
-            ".";
+        }
 
     }
 
@@ -1542,15 +1497,12 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith(
-            "i am "
-        )
+        text.startsWith("i am ") &&
+        text.length > 5
     ) {
 
         const value =
-            text.substring(
-                5
-            ).trim();
+            text.substring(5).trim();
 
 
         remember(
@@ -1565,7 +1517,7 @@ function think(originalText) {
 
 
         return "Got it. I'll remember that you are " +
-            value +
+            escapeHTML(value) +
             ".";
 
     }
@@ -1576,15 +1528,12 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith(
-            "i live in "
-        )
+        text.startsWith("i live in ") &&
+        text.length > 10
     ) {
 
         const value =
-            text.substring(
-                10
-            ).trim();
+            text.substring(10).trim();
 
 
         remember(
@@ -1599,7 +1548,7 @@ function think(originalText) {
 
 
         return "Got it. I'll remember that you live in " +
-            value +
+            escapeHTML(value) +
             ".";
 
     }
@@ -1639,9 +1588,9 @@ function think(originalText) {
 
 
             return "Your " +
-                possibleKey +
+                escapeHTML(possibleKey) +
                 " is " +
-                value +
+                escapeHTML(value) +
                 ".";
 
         }
@@ -1653,7 +1602,7 @@ function think(originalText) {
 
 
         return "I don't remember your " +
-            possibleKey +
+            escapeHTML(possibleKey) +
             " yet.";
 
     }
@@ -1665,20 +1614,15 @@ function think(originalText) {
 
     if (
 
-        text.startsWith(
-            "what is my "
-        ) ||
-
-        text.startsWith(
-            "tell me my "
-        )
+        text.startsWith("what is my ") ||
+        text.startsWith("tell me my ")
 
     ) {
 
         const key =
-            text.substring(
-                11
-            );
+            text.startsWith("what is my ")
+                ? text.substring(11)
+                : text.substring(11);
 
 
         const cleanKey =
@@ -1707,9 +1651,9 @@ function think(originalText) {
 
 
             return "Your " +
-                cleanKey +
+                escapeHTML(cleanKey) +
                 " is " +
-                value +
+                escapeHTML(value) +
                 ".";
 
         }
@@ -1721,7 +1665,7 @@ function think(originalText) {
 
 
         return "I don't remember your " +
-            cleanKey +
+            escapeHTML(cleanKey) +
             " yet.";
 
     }
@@ -1733,21 +1677,14 @@ function think(originalText) {
 
     if (
 
-        text ===
-            "what do you remember" ||
-
-        text ===
-            "show my memories" ||
-
-        text ===
-            "what do you know about me"
+        text === "what do you remember" ||
+        text === "show my memories" ||
+        text === "what do you know about me"
 
     ) {
 
         const keys =
-            Object.keys(
-                memory
-            );
+            Object.keys(memory);
 
 
         if (
@@ -1772,11 +1709,10 @@ function think(originalText) {
             function(key) {
 
                 response +=
-
                     "• " +
-                    key +
+                    escapeHTML(key) +
                     " = " +
-                    memory[key] +
+                    escapeHTML(memory[key]) +
                     "<br>";
 
             }
@@ -1799,14 +1735,9 @@ function think(originalText) {
 
     if (
 
-        text ===
-            "show corrections" ||
-
-        text ===
-            "what have you learned" ||
-
-        text ===
-            "show what you learned"
+        text === "show corrections" ||
+        text === "what have you learned" ||
+        text === "show what you learned"
 
     ) {
 
@@ -1836,19 +1767,19 @@ function think(originalText) {
                 ) {
 
                     response +=
-
                         "• " +
-                        item.key +
+                        escapeHTML(item.key) +
                         ": " +
-                        (item.oldValue || "unknown") +
+                        escapeHTML(
+                            item.oldValue || "unknown"
+                        ) +
                         " → " +
-                        item.newValue +
+                        escapeHTML(item.newValue) +
                         "<br>";
 
                 } else {
 
                     response +=
-
                         "• Correction " +
                         (index + 1) +
                         "<br>";
@@ -1875,13 +1806,8 @@ function think(originalText) {
 
     if (
 
-        text.startsWith(
-            "forget my "
-        ) ||
-
-        text.startsWith(
-            "forget "
-        )
+        text.startsWith("forget my ") ||
+        text.startsWith("forget ")
 
     ) {
 
@@ -1889,22 +1815,16 @@ function think(originalText) {
 
 
         if (
-            text.startsWith(
-                "forget my "
-            )
+            text.startsWith("forget my ")
         ) {
 
             key =
-                text.substring(
-                    10
-                );
+                text.substring(10);
 
         } else {
 
             key =
-                text.substring(
-                    7
-                );
+                text.substring(7);
 
         }
 
@@ -1931,7 +1851,7 @@ function think(originalText) {
 
 
             return "Okay, I forgot your " +
-                key +
+                escapeHTML(key) +
                 ".";
 
         }
@@ -1943,7 +1863,7 @@ function think(originalText) {
 
 
         return "I don't have a memory about your " +
-            key +
+            escapeHTML(key) +
             ".";
 
     }
@@ -1984,9 +1904,9 @@ function think(originalText) {
 
 
                 return "Your " +
-                    lastTopic +
+                    escapeHTML(lastTopic) +
                     " is " +
-                    value +
+                    escapeHTML(value) +
                     ".";
 
             }
@@ -2020,7 +1940,7 @@ function think(originalText) {
 
 
             return "Because that's the information I currently have stored about your " +
-                lastTopic +
+                escapeHTML(lastTopic) +
                 ".";
 
         }
@@ -2063,7 +1983,7 @@ function think(originalText) {
 
 
                 return "The one I remember is " +
-                    value +
+                    escapeHTML(value) +
                     ".";
 
             }
@@ -2107,7 +2027,7 @@ function think(originalText) {
 
 
             return "The answer is " +
-                answer +
+                escapeHTML(answer) +
                 ".";
 
         } catch (
@@ -2133,7 +2053,6 @@ function think(originalText) {
     return smartUnknown(
         text
     );
-
 }
 
 
@@ -2155,6 +2074,16 @@ function sendMessage() {
         );
 
 
+    if (
+        !input ||
+        !messages
+    ) {
+
+        return;
+
+    }
+
+
     const text =
         input.value.trim();
 
@@ -2168,7 +2097,9 @@ function sendMessage() {
     }
 
 
+    // ======================================
     // USER MESSAGE
+    // ======================================
 
     const userMessage =
         document.createElement(
@@ -2180,6 +2111,10 @@ function sendMessage() {
         "user";
 
 
+    // textContent is intentionally used here.
+    // It prevents HTML entered by the user
+    // from becoming actual HTML.
+
     userMessage.textContent =
         text;
 
@@ -2189,7 +2124,13 @@ function sendMessage() {
     );
 
 
+    // ======================================
     // AI MESSAGE
+    // ======================================
+
+    const response =
+        think(text);
+
 
     const aiMessage =
         document.createElement(
@@ -2201,10 +2142,13 @@ function sendMessage() {
         "ai";
 
 
+    // Responses created by think() are already
+    // escaped where user-controlled content
+    // appears. <br> is intentionally allowed
+    // for memory lists.
+
     aiMessage.innerHTML =
-        think(
-            text
-        );
+        response;
 
 
     messages.appendChild(
@@ -2212,12 +2156,24 @@ function sendMessage() {
     );
 
 
+    // ======================================
+    // CLEAR INPUT
+    // ======================================
+
     input.value = "";
 
+
+    // ======================================
+    // SCROLL
+    // ======================================
 
     messages.scrollTop =
         messages.scrollHeight;
 
+
+    // ======================================
+    // SAVE LAST RESPONSE
+    // ======================================
 
     lastResponse =
         aiMessage.innerText;
@@ -2254,8 +2210,7 @@ document.addEventListener(
                 function(event) {
 
                     if (
-                        event.key ===
-                        "Enter"
+                        event.key === "Enter"
                     ) {
 
                         sendMessage();
@@ -2286,13 +2241,35 @@ function clearChat() {
         );
 
 
-    messages.innerHTML = `
+    if (
+        !messages
+    ) {
 
-        <div class="ai">
-            Hello! I'm Liminal AI 0.6.
-        </div>
+        return;
 
-    `;
+    }
+
+
+    messages.innerHTML = "";
+
+
+    const welcome =
+        document.createElement(
+            "div"
+        );
+
+
+    welcome.className =
+        "ai";
+
+
+    welcome.textContent =
+        "Hello! I'm Liminal AI 0.65.";
+
+
+    messages.appendChild(
+        welcome
+    );
 
 
     lastTopic = null;
@@ -2302,3 +2279,4 @@ function clearChat() {
     waitingForClarification = false;
 
 }
+
