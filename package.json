@@ -1,9 +1,17 @@
 {
   "name": "liminal-ai-backend",
-  "version": "0.7.0",
-  "description": "Backend for Liminal AI",
+  "version": "0.75.0",
+  "description": "Backend for Liminal AI 0.75",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
   }
 }

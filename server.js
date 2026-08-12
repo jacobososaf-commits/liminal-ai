@@ -1,961 +1,1034 @@
-// ==========================================
-// LIMINAL AI 0.7
-// BACKEND API
-// FREE WEB SEARCH
-// ==========================================
+// ============================================================
+// LIMINAL AI BACKEND v0.75
+// BUG FIXES + SEARCH HARDENING + RATE LIMITING
+// ============================================================
 
-const http = require("http");
+const express = require("express");
+const cors = require("cors");
+
+const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+// ============================================================
+// CONFIGURATION
+// ============================================================
 
+const VERSION = "0.75.0";
 
-// ==========================================
-// RESPONSE HELPER
-// ==========================================
+// Your GitHub Pages frontend.
+// Change this if your frontend URL is different.
+const ALLOWED_ORIGINS = [
+    "https://jacobososaf-commits.github.io",
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+];
 
-function sendJSON(res, status, data) {
+// ============================================================
+// MIDDLEWARE
+// ============================================================
 
-    res.writeHead(
-        status,
-        {
-            "Content-Type":
-                "application/json",
+app.use(
+    cors({
+        origin: function (origin, callback) {
 
-            "Access-Control-Allow-Origin":
-                "*",
+            // Allow requests without an Origin header.
+            // Useful for curl, Render health checks, etc.
+            if (!origin) {
+                return callback(null, true);
+            }
 
-            "Access-Control-Allow-Methods":
-                "GET, POST, OPTIONS",
+            if (ALLOWED_ORIGINS.includes(origin)) {
+                return callback(null, true);
+            }
 
-            "Access-Control-Allow-Headers":
-                "Content-Type"
+            return callback(
+                new Error("Origin not allowed by CORS")
+            );
         }
+    })
+);
+
+app.use(
+    express.json({
+        limit: "50kb"
+    })
+);
+
+// ============================================================
+// BASIC REQUEST LOGGING
+// ============================================================
+
+app.use((req, res, next) => {
+
+    console.log(
+        `[${new Date().toISOString()}] ${req.method} ${req.path}`
     );
 
-    res.end(
-        JSON.stringify(data)
-    );
+    next();
+});
 
-}
+// ============================================================
+// RATE LIMITING
+// ============================================================
 
+// Simple in-memory per-IP rate limiter.
+//
+// This protects the search and chat endpoints from being
+// spammed continuously.
+//
+// Note:
+// This resets when the server restarts.
+// For a larger production system, use Redis or another
+// persistent rate-limit store.
 
-// ==========================================
-// RANDOM RESPONSE
-// ==========================================
+const rateLimitStore = new Map();
 
-function randomResponse(responses) {
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 30;
 
-    return responses[
-        Math.floor(
-            Math.random() *
-            responses.length
-        )
-    ];
+function getClientIP(req) {
 
-}
+    // Render / reverse proxy support
+    const forwarded =
+        req.headers["x-forwarded-for"];
 
+    if (forwarded) {
 
-// ==========================================
-// LOCAL BACKEND THINKING
-// ==========================================
-
-function think(message) {
-
-    const text =
-        message
-            .toLowerCase()
+        return forwarded
+            .split(",")[0]
             .trim();
 
-
-    // -------------------------------
-    // HELLO
-    // -------------------------------
-
-    if (
-        text === "hello" ||
-        text === "hi" ||
-        text === "hey"
-    ) {
-
-        return randomResponse([
-
-            "Hello! 👋",
-
-            "Hey there!",
-
-            "Hi! 🤖",
-
-            "Hello! How can I help?"
-
-        ]);
-
     }
 
+    return (
+        req.socket.remoteAddress ||
+        "unknown"
+    );
+}
 
-    // -------------------------------
-    // NAME
-    // -------------------------------
+function rateLimit(req, res, next) {
 
-    if (
-        text.includes("what is your name") ||
-        text.includes("who are you")
-    ) {
+    const ip =
+        getClientIP(req);
 
-        return "I'm Liminal AI 0.7.";
+    const now =
+        Date.now();
 
-    }
+    let record =
+        rateLimitStore.get(ip);
 
+    if (!record) {
 
-    // -------------------------------
-    // CREATOR
-    // -------------------------------
+        record = {
+            count: 0,
+            start: now
+        };
 
-    if (
-        text.includes("who made you") ||
-        text.includes("who created you") ||
-        text.includes("who built you")
-    ) {
-
-        return "I was created by Jacobo. 🤖";
-
-    }
-
-
-    // -------------------------------
-    // TIME
-    // -------------------------------
-
-    if (
-        text.includes("what time is it") ||
-        text === "time"
-    ) {
-
-        return (
-            "The current time is " +
-            new Date().toLocaleTimeString()
+        rateLimitStore.set(
+            ip,
+            record
         );
 
     }
 
-
-    // -------------------------------
-    // DATE
-    // -------------------------------
-
+    // Reset expired window
     if (
-        text.includes("what is the date") ||
-        text === "date"
+        now - record.start >=
+        RATE_LIMIT_WINDOW
     ) {
 
-        return (
-            "Today is " +
-            new Date().toLocaleDateString()
+        record.count = 0;
+        record.start = now;
+
+    }
+
+    record.count++;
+
+    if (
+        record.count >
+        MAX_REQUESTS_PER_WINDOW
+    ) {
+
+        const retryAfter =
+            Math.ceil(
+                (
+                    RATE_LIMIT_WINDOW -
+                    (now - record.start)
+                ) / 1000
+            );
+
+        res.setHeader(
+            "Retry-After",
+            retryAfter
         );
 
-    }
+        return res.status(429).json({
 
+            success: false,
 
-    // -------------------------------
-    // JOKE
-    // -------------------------------
+            error:
+                "Too many requests. Please wait a moment."
 
-    if (
-        text.includes("tell me a joke") ||
-        text === "joke"
-    ) {
-
-        return randomResponse([
-
-            "Why did the computer get cold? It left its Windows open. 😂",
-
-            "What do computers eat? Microchips! 🤖",
-
-            "Why was the computer tired? It had too many tabs open."
-
-        ]);
+        });
 
     }
 
+    next();
+}
 
-    // -------------------------------
-    // MATH
-    // -------------------------------
+// Clean old IP entries periodically
+setInterval(() => {
 
-    if (
-        /^[0-9+\-*/().\s]+$/.test(text)
+    const now =
+        Date.now();
+
+    for (
+        const [ip, record]
+        of rateLimitStore.entries()
     ) {
 
-        try {
+        if (
+            now - record.start >=
+            RATE_LIMIT_WINDOW
+        ) {
 
-            const answer =
-                Function(
-                    '"use strict"; return (' +
-                    text +
-                    ')'
-                )();
-
-
-            return (
-                "The answer is " +
-                answer +
-                "."
-            );
-
-        } catch {
-
-            return (
-                "I couldn't calculate that."
-            );
+            rateLimitStore.delete(ip);
 
         }
 
     }
 
+}, RATE_LIMIT_WINDOW);
 
-    // -------------------------------
-    // UNKNOWN
-    // -------------------------------
+// ============================================================
+// SEARCH RATE LIMIT
+// ============================================================
 
-    return (
-        "I don't know that yet, but you can ask me to search the web."
-    );
+const searchRateLimitStore = new Map();
+
+const SEARCH_WINDOW =
+    60 * 1000;
+
+const MAX_SEARCH_REQUESTS =
+    10;
+
+function searchRateLimit(req, res, next) {
+
+    const ip =
+        getClientIP(req);
+
+    const now =
+        Date.now();
+
+    let record =
+        searchRateLimitStore.get(ip);
+
+    if (!record) {
+
+        record = {
+            count: 0,
+            start: now
+        };
+
+        searchRateLimitStore.set(
+            ip,
+            record
+        );
+
+    }
+
+    if (
+        now - record.start >=
+        SEARCH_WINDOW
+    ) {
+
+        record.count = 0;
+        record.start = now;
+
+    }
+
+    record.count++;
+
+    if (
+        record.count >
+        MAX_SEARCH_REQUESTS
+    ) {
+
+        const retryAfter =
+            Math.ceil(
+                (
+                    SEARCH_WINDOW -
+                    (now - record.start)
+                ) / 1000
+            );
+
+        res.setHeader(
+            "Retry-After",
+            retryAfter
+        );
+
+        return res.status(429).json({
+
+            success: false,
+
+            available: false,
+
+            error:
+                "Search rate limit reached. Please wait."
+
+        });
+
+    }
+
+    next();
+}
+
+// ============================================================
+// HOME
+// ============================================================
+
+app.get("/", (req, res) => {
+
+    res.json({
+
+        success: true,
+
+        name: "Liminal AI Backend",
+
+        version: VERSION,
+
+        status: "online"
+
+    });
+
+});
+
+// ============================================================
+// TEST ENDPOINT
+// ============================================================
+
+app.get("/api/test", (req, res) => {
+
+    res.json({
+
+        success: true,
+
+        message:
+            "Liminal AI backend is online!",
+
+        version:
+            VERSION,
+
+        timestamp:
+            new Date().toISOString()
+
+    });
+
+});
+
+// ============================================================
+// INFO ENDPOINT
+// ============================================================
+
+app.get("/api/info", (req, res) => {
+
+    res.json({
+
+        success: true,
+
+        name:
+            "Liminal AI",
+
+        version:
+            VERSION,
+
+        backend:
+            "Node.js + Express",
+
+        features: [
+
+            "Local memory",
+
+            "Confidence system",
+
+            "Corrections",
+
+            "Web search",
+
+            "Search rate limiting",
+
+            "Chat rate limiting",
+
+            "CORS protection",
+
+            "Search failure detection"
+
+        ],
+
+        search:
+
+            "DuckDuckGo HTML fallback",
+
+        status:
+            "online"
+
+    });
+
+});
+
+// ============================================================
+// SEARCH HELPERS
+// ============================================================
+
+function cleanSearchText(text) {
+
+    if (
+        typeof text !== "string"
+    ) {
+
+        return "";
+
+    }
+
+    return text
+        .replace(
+            /[\r\n\t]+/g,
+            " "
+        )
+        .replace(
+            /\s+/g,
+            " "
+        )
+        .trim();
 
 }
 
+function escapeHTML(text) {
 
-// ==========================================
-// FREE WEB SEARCH
-// DUCKDUCKGO HTML
-// ==========================================
+    return String(text)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 
-async function searchWeb(query) {
+}
+
+// ============================================================
+// DUCKDUCKGO SEARCH
+// ============================================================
+
+async function searchDuckDuckGo(query) {
+
+    const encodedQuery =
+        encodeURIComponent(
+            query
+        );
+
+    const url =
+        `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
 
     try {
 
-        const searchURL =
-            "https://html.duckduckgo.com/html/?q=" +
-            encodeURIComponent(query);
-
-
         const response =
             await fetch(
-                searchURL,
+                url,
                 {
+                    method: "GET",
+
                     headers: {
                         "User-Agent":
-                            "LiminalAI/0.7"
+                            "Mozilla/5.0 (compatible; LiminalAI/0.75)"
                     }
                 }
             );
 
-
-        if (!response.ok) {
+        if (
+            !response.ok
+        ) {
 
             throw new Error(
-                "DuckDuckGo returned HTTP " +
-                response.status
+                `DuckDuckGo returned ${response.status}`
             );
 
         }
 
-
         const html =
             await response.text();
 
+        if (
+            !html ||
+            html.length < 100
+        ) {
+
+            throw new Error(
+                "DuckDuckGo returned an empty response"
+            );
+
+        }
 
         const results = [];
 
+        // ====================================================
+        // RESULT BLOCKS
+        // ====================================================
 
-        // ==================================
-        // FIND RESULT BLOCKS
-        // ==================================
+        const resultRegex =
+            /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
 
-        const resultPattern =
-            /<div class="result[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
-
-
-        const matches =
+        const blocks =
             html.match(
-                resultPattern
+                resultRegex
             ) || [];
 
-
-        // ==================================
-        // PARSE RESULTS
-        // ==================================
-
         for (
-            let i = 0;
-            i < matches.length &&
-            results.length < 5;
-            i++
+            const block
+            of blocks
         ) {
 
-            const block =
-                matches[i];
+            if (
+                results.length >= 10
+            ) {
 
+                break;
 
-            // ------------------------------
+            }
+
+            // -----------------------------------------------
             // TITLE
-            // ------------------------------
+            // -----------------------------------------------
 
             const titleMatch =
                 block.match(
-                    /<a[^>]*class="result__a"[^>]*>([\s\S]*?)<\/a>/i
+                    /class="result__a"[^>]*>([\s\S]*?)<\/a>/i
                 );
 
-
-            // ------------------------------
+            // -----------------------------------------------
             // URL
-            // ------------------------------
+            // -----------------------------------------------
 
             const urlMatch =
                 block.match(
-                    /<a[^>]*class="result__a"[^>]*href="([^"]+)"/i
+                    /class="result__a"[^>]*href="([^"]+)"/i
                 );
 
-
-            // ------------------------------
+            // -----------------------------------------------
             // SNIPPET
-            // ------------------------------
+            // -----------------------------------------------
 
             const snippetMatch =
                 block.match(
-                    /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i
+                    /class="result__snippet"[^>]*>([\s\S]*?)<\/a?>/i
                 );
 
-
             if (
-                !titleMatch
+                !titleMatch ||
+                !urlMatch
             ) {
 
                 continue;
 
             }
 
+            let title =
+                titleMatch[1];
 
-            const title =
-                cleanHTML(
-                    titleMatch[1]
+            let resultURL =
+                urlMatch[1];
+
+            let snippet =
+                snippetMatch
+                    ? snippetMatch[1]
+                    : "";
+
+            // Remove HTML
+            title =
+                title.replace(
+                    /<[^>]+>/g,
+                    ""
                 );
 
+            snippet =
+                snippet.replace(
+                    /<[^>]+>/g,
+                    ""
+                );
 
-            const snippet =
-                snippetMatch
-                    ? cleanHTML(
-                        snippetMatch[1]
+            // Decode common entities
+            title =
+                title
+                    .replace(
+                        /&amp;/g,
+                        "&"
                     )
-                    : "";
-
-
-            let url =
-                urlMatch
-                    ? cleanHTML(
-                        urlMatch[1]
+                    .replace(
+                        /&quot;/g,
+                        '"'
                     )
-                    : "";
+                    .replace(
+                        /&#x27;/g,
+                        "'"
+                    )
+                    .replace(
+                        /&#39;/g,
+                        "'"
+                    );
 
+            snippet =
+                snippet
+                    .replace(
+                        /&amp;/g,
+                        "&"
+                    )
+                    .replace(
+                        /&quot;/g,
+                        '"'
+                    )
+                    .replace(
+                        /&#x27;/g,
+                        "'"
+                    )
+                    .replace(
+                        /&#39;/g,
+                        "'"
+                    );
 
-            // DuckDuckGo sometimes gives
-            // redirect URLs instead of the
-            // final destination.
+            // DDG sometimes returns redirect URLs.
+            try {
 
-            if (
-                url.startsWith(
-                    "//duckduckgo.com/l/?"
-                )
-            ) {
+                if (
+                    resultURL.startsWith(
+                        "//"
+                    )
+                ) {
 
-                try {
-
-                    const redirectURL =
-                        new URL(
-                            "https:" +
-                            url
-                        );
-
-
-                    const actualURL =
-                        redirectURL.searchParams.get(
-                            "uddg"
-                        );
-
-
-                    if (
-                        actualURL
-                    ) {
-
-                        url =
-                            decodeURIComponent(
-                                actualURL
-                            );
-
-                    }
-
-                } catch {
-
-                    // Keep original URL
+                    resultURL =
+                        "https:" +
+                        resultURL;
 
                 }
 
-            }
+                const parsed =
+                    new URL(
+                        resultURL
+                    );
 
+                if (
+                    parsed.hostname.includes(
+                        "duckduckgo.com"
+                    ) &&
+                    parsed.searchParams.has(
+                        "uddg"
+                    )
+                ) {
+
+                    resultURL =
+                        decodeURIComponent(
+                            parsed.searchParams.get(
+                                "uddg"
+                            )
+                        );
+
+                }
+
+            } catch (
+                error
+            ) {
+
+                // Keep original URL if parsing fails.
+
+            }
 
             results.push({
 
                 title:
-                    title,
-
-                snippet:
-                    snippet,
+                    cleanSearchText(
+                        title
+                    ),
 
                 url:
-                    url
+                    resultURL,
+
+                snippet:
+                    cleanSearchText(
+                        snippet
+                    )
 
             });
 
         }
 
-
-        return {
-
-            success:
-                true,
-
-            available:
-                true,
-
-            results:
-                results,
-
-            query:
-                query
-
-        };
-
-
-    } catch (error) {
-
-        console.error(
-            "Web search error:",
-            error
-        );
-
-
-        return {
-
-            success:
-                false,
-
-            available:
-                false,
-
-            results:
-                [],
-
-            message:
-                "Free web search is currently unavailable."
-
-        };
-
-    }
-
-}
-
-
-// ==========================================
-// HTML CLEANER
-// ==========================================
-
-function cleanHTML(text) {
-
-    if (!text) {
-
-        return "";
-
-    }
-
-
-    return text
-
-        // Remove HTML tags
-        .replace(
-            /<[^>]*>/g,
-            ""
-        )
-
-        // Decode common HTML entities
-        .replace(
-            /&amp;/g,
-            "&"
-        )
-
-        .replace(
-            /&quot;/g,
-            '"'
-        )
-
-        .replace(
-            /&#x27;/g,
-            "'"
-        )
-
-        .replace(
-            /&#39;/g,
-            "'"
-        )
-
-        .replace(
-            /&lt;/g,
-            "<"
-        )
-
-        .replace(
-            /&gt;/g,
-            ">"
-        )
-
-        .replace(
-            /&nbsp;/g,
-            " "
-        )
-
-        .trim();
-
-}
-
-
-// ==========================================
-// SERVER
-// ==========================================
-
-const server =
-    http.createServer(
-        (req, res) => {
-
-            // ==================================
-            // CORS
-            // ==================================
-
-            res.setHeader(
-                "Access-Control-Allow-Origin",
-                "*"
-            );
-
-
-            res.setHeader(
-                "Access-Control-Allow-Methods",
-                "GET, POST, OPTIONS"
-            );
-
-
-            res.setHeader(
-                "Access-Control-Allow-Headers",
-                "Content-Type"
-            );
-
-
-            // ==================================
-            // OPTIONS
-            // ==================================
-
-            if (
-                req.method === "OPTIONS"
-            ) {
-
-                res.writeHead(204);
-
-                res.end();
-
-                return;
-
-            }
-
-
-            // ==================================
-            // PARSE URL
-            // ==================================
-
-            const parsedURL =
-                new URL(
-                    req.url,
-                    "http://localhost:" + PORT
-                );
-
-
-            // ==================================
-            // API STATUS
-            // ==================================
-
-            if (
-                req.method === "GET" &&
-                parsedURL.pathname === "/api/test"
-            ) {
-
-                sendJSON(
-                    res,
-                    200,
-                    {
-
-                        success:
-                            true,
-
-                        version:
-                            "0.7",
-
-                        status:
-                            "online",
-
-                        message:
-                            "Liminal AI backend is working!"
-
-                    }
-                );
-
-                return;
-
-            }
-
-
-            // ==================================
-            // API INFO
-            // ==================================
-
-            if (
-                req.method === "GET" &&
-                parsedURL.pathname === "/api/info"
-            ) {
-
-                sendJSON(
-                    res,
-                    200,
-                    {
-
-                        name:
-                            "Liminal AI",
-
-                        version:
-                            "0.7",
-
-                        backend:
-                            true,
-
-                        search:
-                            true,
-
-                        searchProvider:
-                            "DuckDuckGo",
-
-                        status:
-                            "online"
-
-                    }
-                );
-
-                return;
-
-            }
-
-
-            // ==================================
-            // FREE WEB SEARCH
-            // ==================================
-
-            if (
-                req.method === "GET" &&
-                parsedURL.pathname === "/api/search"
-            ) {
-
-                const query =
-                    parsedURL.searchParams.get(
-                        "q"
-                    );
-
-
-                if (
-                    !query ||
-                    query.trim() === ""
-                ) {
-
-                    sendJSON(
-                        res,
-                        400,
-                        {
-
-                            success:
-                                false,
-
-                            available:
-                                true,
-
-                            error:
-                                "Search query is empty."
-
-                        }
-                    );
-
-                    return;
-
-                }
-
-
-                console.log(
-                    "🌐 Web search:",
-                    query
-                );
-
-
-                searchWeb(
-                    query
-                )
-                    .then(
-                        result => {
-
-                            sendJSON(
-                                res,
-                                result.success
-                                    ? 200
-                                    : 502,
-                                result
-                            );
-
-                        }
-                    )
-                    .catch(
-                        error => {
-
-                            console.error(
-                                error
-                            );
-
-
-                            sendJSON(
-                                res,
-                                500,
-                                {
-
-                                    success:
-                                        false,
-
-                                    available:
-                                        false,
-
-                                    results:
-                                        [],
-
-                                    error:
-                                        "Search failed."
-
-                                }
-                            );
-
-                        }
-                    );
-
-
-                return;
-
-            }
-
-
-            // ==================================
-            // CHAT
-            // ==================================
-
-            if (
-                req.method === "POST" &&
-                parsedURL.pathname === "/api/chat"
-            ) {
-
-                let body = "";
-
-
-                req.on(
-                    "data",
-                    chunk => {
-
-                        body += chunk;
-
-                    }
-                );
-
-
-                req.on(
-                    "end",
-                    () => {
-
-                        try {
-
-                            const data =
-                                JSON.parse(
-                                    body
-                                );
-
-
-                            const message =
-                                String(
-                                    data.message || ""
-                                ).trim();
-
-
-                            if (
-                                message === ""
-                            ) {
-
-                                sendJSON(
-                                    res,
-                                    400,
-                                    {
-
-                                        success:
-                                            false,
-
-                                        error:
-                                            "Message is empty."
-
-                                    }
-                                );
-
-                                return;
-
-                            }
-
-
-                            console.log(
-                                "Liminal received:",
-                                message
-                            );
-
-
-                            const reply =
-                                think(
-                                    message
-                                );
-
-
-                            sendJSON(
-                                res,
-                                200,
-                                {
-
-                                    success:
-                                        true,
-
-                                    version:
-                                        "0.7",
-
-                                    reply:
-                                        reply
-
-                                }
-                            );
-
-
-                        } catch (
-                            error
-                        ) {
-
-                            console.error(
-                                error
-                            );
-
-
-                            sendJSON(
-                                res,
-                                400,
-                                {
-
-                                    success:
-                                        false,
-
-                                    error:
-                                        "Invalid JSON."
-
-                                }
-                            );
-
-                        }
-
-                    }
-                );
-
-
-                return;
-
-            }
-
-
-            // ==================================
-            // 404
-            // ==================================
-
-            sendJSON(
-                res,
-                404,
-                {
-
-                    success:
-                        false,
-
-                    error:
-                        "API endpoint not found."
-
-                }
+        // ====================================================
+        // IMPORTANT 0.75 HARDENING
+        // ====================================================
+
+        // If HTML was received but our parser found nothing,
+        // DO NOT pretend there were simply no search results.
+        //
+        // This detects when DDG changes its HTML structure.
+
+        if (
+            results.length === 0
+        ) {
+
+            throw new Error(
+                "Search page was received, but no results could be parsed"
             );
 
         }
-    );
 
+        return {
 
-// ==========================================
-// START
-// ==========================================
+            success: true,
 
-server.listen(
+            available: true,
+
+            results
+
+        };
+
+    } catch (
+        error
+    ) {
+
+        console.error(
+            "DuckDuckGo search failed:",
+            error.message
+        );
+
+        return {
+
+            success: false,
+
+            available: false,
+
+            results: [],
+
+            message:
+                "Search is temporarily unavailable."
+
+        };
+
+    }
+
+}
+
+// ============================================================
+// SEARCH ENDPOINT
+// ============================================================
+
+app.get(
+    "/api/search",
+    searchRateLimit,
+    async (req, res) => {
+
+        let query =
+            req.query.q;
+
+        query =
+            cleanSearchText(
+                query
+            );
+
+        // -----------------------------------------------
+        // VALIDATION
+        // -----------------------------------------------
+
+        if (
+            !query
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                available: false,
+
+                error:
+                    "Missing search query."
+
+            });
+
+        }
+
+        // Prevent enormous search queries
+        if (
+            query.length > 300
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                available: false,
+
+                error:
+                    "Search query is too long."
+
+            });
+
+        }
+
+        console.log(
+            `🔎 Search: "${query}"`
+        );
+
+        const result =
+            await searchDuckDuckGo(
+                query
+            );
+
+        // -----------------------------------------------
+        // SEARCH FAILED
+        // -----------------------------------------------
+
+        if (
+            !result.success
+        ) {
+
+            return res.status(503).json({
+
+                success: false,
+
+                available: false,
+
+                results: [],
+
+                message:
+                    "The search service is temporarily unavailable."
+
+            });
+
+        }
+
+        // -----------------------------------------------
+        // SUCCESS
+        // -----------------------------------------------
+
+        return res.json({
+
+            success: true,
+
+            available: true,
+
+            query:
+
+                query,
+
+            results:
+                result.results
+
+        });
+
+    }
+);
+
+// ============================================================
+// CHAT ENDPOINT
+// ============================================================
+
+app.post(
+    "/api/chat",
+    rateLimit,
+    async (req, res) => {
+
+        const message =
+            req.body &&
+            req.body.message;
+
+        if (
+            typeof message !==
+            "string"
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                error:
+                    "Message must be a string."
+
+            });
+
+        }
+
+        const cleanedMessage =
+            message.trim();
+
+        if (
+            !cleanedMessage
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                error:
+                    "Message cannot be empty."
+
+            });
+
+        }
+
+        if (
+            cleanedMessage.length > 2000
+        ) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                error:
+                    "Message is too long."
+
+            });
+
+        }
+
+        console.log(
+            `💬 Chat message: "${cleanedMessage}"`
+        );
+
+        // ====================================================
+        // IMPORTANT
+        // ====================================================
+        //
+        // Liminal's actual memory/understanding system lives
+        // in script.js right now.
+        //
+        // The backend should NOT replace that system.
+        //
+        // This endpoint exists so the frontend can verify that
+        // the backend is alive and ready for future backend AI.
+        // ====================================================
+
+        return res.json({
+
+            success: true,
+
+            reply:
+                "Liminal AI's backend is online, but no remote AI chat provider is connected yet.",
+
+            version:
+                VERSION
+
+        });
+
+    }
+);
+
+// ============================================================
+// 404
+// ============================================================
+
+app.use(
+    (req, res) => {
+
+        res.status(404).json({
+
+            success: false,
+
+            error:
+                "Endpoint not found."
+
+        });
+
+    }
+);
+
+// ============================================================
+// ERROR HANDLER
+// ============================================================
+
+app.use(
+    (err, req, res, next) => {
+
+        console.error(
+            "Server error:",
+            err
+        );
+
+        if (
+            err.message &&
+            err.message.includes(
+                "Origin not allowed"
+            )
+        ) {
+
+            return res.status(403).json({
+
+                success: false,
+
+                error:
+                    "Origin not allowed."
+
+            });
+
+        }
+
+        res.status(500).json({
+
+            success: false,
+
+            error:
+                "Internal server error."
+
+        });
+
+    }
+);
+
+// ============================================================
+// START SERVER
+// ============================================================
+
+app.listen(
     PORT,
     () => {
 
+        console.log("");
         console.log(
-            "=================================="
+            "=========================================="
         );
-
         console.log(
-            "LIMINAL AI 0.7 BACKEND"
+            `🤖 Liminal AI Backend v${VERSION}`
         );
-
         console.log(
-            "=================================="
+            "=========================================="
         );
-
         console.log(
-            "Server: http://localhost:" +
-            PORT
+            `🚀 Server running on port ${PORT}`
         );
-
         console.log(
-            "Status: ONLINE"
+            "🔒 Rate limiting: ENABLED"
         );
-
         console.log(
-            "Chat:   /api/chat"
+            "🌐 Search hardening: ENABLED"
         );
-
         console.log(
-            "Info:   /api/info"
+            "🛡️ CORS protection: ENABLED"
         );
-
         console.log(
-            "Search: /api/search"
+            "=========================================="
         );
-
-        console.log(
-            "Provider: DuckDuckGo"
-        );
-
-        console.log(
-            "=================================="
-        );
+        console.log("");
 
     }
 );
