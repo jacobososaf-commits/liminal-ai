@@ -1,8 +1,8 @@
+
 /* ==========================================
 LIMINAL AI 0.75 STYLE
 BASED ON ORIGINAL 0.65 STYLE
 ========================================== */
-
 
 /* ---------------- BODY ---------------- */
 
@@ -24,7 +24,6 @@ body {
 
     transition:
         background 0.25s ease;
-
 }
 
 
@@ -52,7 +51,6 @@ body {
     transition:
         background 0.25s ease,
         box-shadow 0.25s ease;
-
 }
 
 
@@ -75,7 +73,6 @@ body {
     transition:
         background 0.25s ease,
         color 0.25s ease;
-
 }
 
 
@@ -84,7 +81,6 @@ body {
     font-size: 22px;
 
     font-weight: bold;
-
 }
 
 
@@ -95,7 +91,6 @@ body {
     align-items: center;
 
     gap: 15px;
-
 }
 
 
@@ -104,7 +99,6 @@ body {
     color: #7CFC00;
 
     font-size: 16px;
-
 }
 
 
@@ -131,7 +125,6 @@ body {
     transition:
         background 0.2s ease,
         transform 0.2s ease;
-
 }
 
 
@@ -141,14 +134,12 @@ body {
         rgba(128, 128, 128, 0.2);
 
     transform: scale(1.05);
-
 }
 
 
 #themeButton:active {
 
     transform: scale(0.98);
-
 }
 
 
@@ -170,7 +161,6 @@ body {
 
     transition:
         background 0.25s ease;
-
 }
 
 
@@ -188,7 +178,6 @@ body {
     word-wrap: break-word;
 
     white-space: pre-line;
-
 }
 
 
@@ -205,18 +194,18 @@ body {
     transition:
         background 0.25s ease,
         color 0.25s ease;
-
 }
 
 
 /* ---------------- WELCOME MESSAGE ---------------- */
 
+/* FIXED: stays on the LEFT */
+
 .welcome {
 
-    align-self: center;
+    align-self: flex-start;
 
-    text-align: center;
-
+    text-align: left;
 }
 
 
@@ -229,7 +218,6 @@ body {
     color: black;
 
     align-self: flex-end;
-
 }
 
 
@@ -242,7 +230,6 @@ body {
     opacity: 0.7;
 
     margin-top: 6px;
-
 }
 
 
@@ -260,7 +247,6 @@ body {
 
     transition:
         background 0.25s ease;
-
 }
 
 
@@ -285,14 +271,12 @@ body {
     transition:
         background 0.25s ease,
         color 0.25s ease;
-
 }
 
 
 #userInput::placeholder {
 
     color: #777;
-
 }
 
 
@@ -320,7 +304,6 @@ body {
     transition:
         background 0.2s ease,
         transform 0.2s ease;
-
 }
 
 
@@ -330,7 +313,6 @@ body {
     background: #FFE75A;
 
     transform: scale(1.05);
-
 }
 
 
@@ -338,7 +320,6 @@ body {
 #clearButton:active {
 
     transform: scale(0.98);
-
 }
 
 
@@ -349,7 +330,6 @@ LIGHT MODE
 body.light-mode {
 
     background: #f2f2f2;
-
 }
 
 
@@ -359,7 +339,6 @@ body.light-mode #chat {
 
     box-shadow:
         0 0 25px rgba(0, 0, 0, 0.2);
-
 }
 
 
@@ -368,21 +347,18 @@ body.light-mode #header {
     background: #e5e5e5;
 
     color: #111;
-
 }
 
 
 body.light-mode #status {
 
     color: #228B22;
-
 }
 
 
 body.light-mode #messages {
 
     background: white;
-
 }
 
 
@@ -391,14 +367,12 @@ body.light-mode .ai {
     background: #eeeeee;
 
     color: #111;
-
 }
 
 
 body.light-mode #inputArea {
 
     background: #e5e5e5;
-
 }
 
 
@@ -407,14 +381,12 @@ body.light-mode #userInput {
     background: white;
 
     color: #111;
-
 }
 
 
 body.light-mode #userInput::placeholder {
 
     color: #777;
-
 }
 
 
@@ -423,7 +395,6 @@ body.light-mode #userInput::placeholder {
 #messages::-webkit-scrollbar {
 
     width: 8px;
-
 }
 
 
@@ -432,7 +403,6 @@ body.light-mode #userInput::placeholder {
     background: #777;
 
     border-radius: 10px;
-
 }
 
 
@@ -440,5 +410,4 @@ body.light-mode
 #messages::-webkit-scrollbar-thumb {
 
     background: #aaa;
-
 }
