@@ -73,24 +73,13 @@ app.use((req, res, next) => {
 // RATE LIMITING
 // ============================================================
 
-// Simple in-memory per-IP rate limiter.
-//
-// This protects the search and chat endpoints from being
-// spammed continuously.
-//
-// Note:
-// This resets when the server restarts.
-// For a larger production system, use Redis or another
-// persistent rate-limit store.
-
 const rateLimitStore = new Map();
 
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_WINDOW = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 30;
 
 function getClientIP(req) {
 
-    // Render / reverse proxy support
     const forwarded =
         req.headers["x-forwarded-for"];
 
@@ -368,7 +357,6 @@ app.get("/api/info", (req, res) => {
         ],
 
         search:
-
             "DuckDuckGo HTML fallback",
 
         status:
@@ -405,28 +393,32 @@ function cleanSearchText(text) {
 
 }
 
-function escapeHTML(text) {
+function decodeHTML(text) {
 
     return String(text)
         .replace(
-            /&/g,
-            "&amp;"
+            /&amp;/g,
+            "&"
         )
         .replace(
-            /</g,
-            "&lt;"
+            /&quot;/g,
+            '"'
         )
         .replace(
-            />/g,
-            "&gt;"
+            /&#x27;/g,
+            "'"
         )
         .replace(
-            /"/g,
-            "&quot;"
+            /&#39;/g,
+            "'"
         )
         .replace(
-            /'/g,
-            "&#039;"
+            /&lt;/g,
+            "<"
+        )
+        .replace(
+            /&gt;/g,
+            ">"
         );
 
 }
@@ -438,9 +430,7 @@ function escapeHTML(text) {
 async function searchDuckDuckGo(query) {
 
     const encodedQuery =
-        encodeURIComponent(
-            query
-        );
+        encodeURIComponent(query);
 
     const url =
         `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
@@ -491,7 +481,7 @@ async function searchDuckDuckGo(query) {
         // ====================================================
 
         const resultRegex =
-            /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
+            /<div[^>]*class="[^"]*\bresult\b[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*\bresult\b|<\/body>)/gi;
 
         const blocks =
             html.match(
@@ -512,22 +502,27 @@ async function searchDuckDuckGo(query) {
             }
 
             // -----------------------------------------------
-            // TITLE
+            // TITLE + URL
             // -----------------------------------------------
 
             const titleMatch =
                 block.match(
-                    /class="result__a"[^>]*>([\s\S]*?)<\/a>/i
+                    /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i
                 );
 
-            // -----------------------------------------------
-            // URL
-            // -----------------------------------------------
+            if (
+                !titleMatch
+            ) {
 
-            const urlMatch =
-                block.match(
-                    /class="result__a"[^>]*href="([^"]+)"/i
-                );
+                continue;
+
+            }
+
+            let resultURL =
+                titleMatch[1];
+
+            let title =
+                titleMatch[2];
 
             // -----------------------------------------------
             // SNIPPET
@@ -535,30 +530,15 @@ async function searchDuckDuckGo(query) {
 
             const snippetMatch =
                 block.match(
-                    /class="result__snippet"[^>]*>([\s\S]*?)<\/a?>/i
+                    /<[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i
                 );
-
-            if (
-                !titleMatch ||
-                !urlMatch
-            ) {
-
-                continue;
-
-            }
-
-            let title =
-                titleMatch[1];
-
-            let resultURL =
-                urlMatch[1];
 
             let snippet =
                 snippetMatch
                     ? snippetMatch[1]
                     : "";
 
-            // Remove HTML
+            // Remove HTML tags
             title =
                 title.replace(
                     /<[^>]+>/g,
@@ -571,52 +551,21 @@ async function searchDuckDuckGo(query) {
                     ""
                 );
 
-            // Decode common entities
+            // Decode HTML entities
             title =
-                title
-                    .replace(
-                        /&amp;/g,
-                        "&"
-                    )
-                    .replace(
-                        /&quot;/g,
-                        '"'
-                    )
-                    .replace(
-                        /&#x27;/g,
-                        "'"
-                    )
-                    .replace(
-                        /&#39;/g,
-                        "'"
-                    );
+                decodeHTML(title);
 
             snippet =
-                snippet
-                    .replace(
-                        /&amp;/g,
-                        "&"
-                    )
-                    .replace(
-                        /&quot;/g,
-                        '"'
-                    )
-                    .replace(
-                        /&#x27;/g,
-                        "'"
-                    )
-                    .replace(
-                        /&#39;/g,
-                        "'"
-                    );
+                decodeHTML(snippet);
 
-            // DDG sometimes returns redirect URLs.
+            // -----------------------------------------------
+            // CLEAN URL
+            // -----------------------------------------------
+
             try {
 
                 if (
-                    resultURL.startsWith(
-                        "//"
-                    )
+                    resultURL.startsWith("//")
                 ) {
 
                     resultURL =
@@ -626,9 +575,7 @@ async function searchDuckDuckGo(query) {
                 }
 
                 const parsed =
-                    new URL(
-                        resultURL
-                    );
+                    new URL(resultURL);
 
                 if (
                     parsed.hostname.includes(
@@ -656,33 +603,46 @@ async function searchDuckDuckGo(query) {
 
             }
 
+            // -----------------------------------------------
+            // ADD RESULT
+            // -----------------------------------------------
+
+            const cleanedTitle =
+                cleanSearchText(title);
+
+            const cleanedSnippet =
+                cleanSearchText(snippet);
+
+            if (
+                !cleanedTitle ||
+                !resultURL
+            ) {
+
+                continue;
+
+            }
+
             results.push({
 
                 title:
-                    cleanSearchText(
-                        title
-                    ),
+                    cleanedTitle,
 
                 url:
                     resultURL,
 
                 snippet:
-                    cleanSearchText(
-                        snippet
-                    )
+                    cleanedSnippet
 
             });
 
         }
 
         // ====================================================
-        // IMPORTANT 0.75 HARDENING
+        // SEARCH HARDENING
         // ====================================================
 
         // If HTML was received but our parser found nothing,
-        // DO NOT pretend there were simply no search results.
-        //
-        // This detects when DDG changes its HTML structure.
+        // don't pretend there were simply no results.
 
         if (
             results.length === 0
@@ -829,7 +789,6 @@ app.get(
             available: true,
 
             query:
-
                 query,
 
             results:
@@ -1004,30 +963,39 @@ app.listen(
     () => {
 
         console.log("");
+
         console.log(
             "=========================================="
         );
+
         console.log(
             `🤖 Liminal AI Backend v${VERSION}`
         );
+
         console.log(
             "=========================================="
         );
+
         console.log(
             `🚀 Server running on port ${PORT}`
         );
+
         console.log(
             "🔒 Rate limiting: ENABLED"
         );
+
         console.log(
             "🌐 Search hardening: ENABLED"
         );
+
         console.log(
             "🛡️ CORS protection: ENABLED"
         );
+
         console.log(
             "=========================================="
         );
+
         console.log("");
 
     }
