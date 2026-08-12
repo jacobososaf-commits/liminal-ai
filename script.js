@@ -1,6 +1,7 @@
 // ==========================================
-// LIMINAL AI 0.7
-// MEMORY + LEARNING + CONFIDENCE + BACKEND + SEARCH
+// LIMINAL AI 0.75.1
+// CONFIDENCE + LEARNING + MEMORY
+// BACKEND + SEARCH + BUG FIXES
 // ==========================================
 
 
@@ -21,7 +22,6 @@ let memory =
         localStorage.getItem("liminalMemory")
     ) || {};
 
-
 function saveMemory() {
 
     localStorage.setItem(
@@ -38,9 +38,10 @@ function saveMemory() {
 
 let corrections =
     JSON.parse(
-        localStorage.getItem("liminalCorrections")
+        localStorage.getItem(
+            "liminalCorrections"
+        )
     ) || [];
-
 
 function saveCorrections() {
 
@@ -69,7 +70,6 @@ let waitingForClarification = false;
 
 let lastConfidence = "high";
 
-
 function setConfidence(level) {
 
     lastConfidence = level;
@@ -87,9 +87,9 @@ async function testBackend() {
 
         const response =
             await fetch(
-                BACKEND_URL + "/api/test"
+                BACKEND_URL +
+                "/api/test"
             );
-
 
         if (!response.ok) {
 
@@ -100,21 +100,17 @@ async function testBackend() {
 
         }
 
-
         const data =
             await response.json();
-
 
         console.log(
             "Backend response:",
             data.message
         );
 
-
         console.log(
-            "✅ Liminal AI 0.7 backend connected!"
+            "✅ Liminal AI 0.75 backend connected!"
         );
-
 
         return true;
 
@@ -143,9 +139,9 @@ async function getBackendInfo() {
 
         const response =
             await fetch(
-                BACKEND_URL + "/api/info"
+                BACKEND_URL +
+                "/api/info"
             );
-
 
         if (!response.ok) {
 
@@ -155,16 +151,13 @@ async function getBackendInfo() {
 
         }
 
-
         const data =
             await response.json();
-
 
         console.log(
             "Liminal backend info:",
             data
         );
-
 
         return data;
 
@@ -196,10 +189,8 @@ async function searchWeb(query) {
                 encodeURIComponent(query)
             );
 
-
         const data =
             await response.json();
-
 
         if (!response.ok) {
 
@@ -210,7 +201,6 @@ async function searchWeb(query) {
 
         }
 
-
         return data;
 
     } catch (error) {
@@ -219,7 +209,6 @@ async function searchWeb(query) {
             "Search error:",
             error
         );
-
 
         return {
 
@@ -260,9 +249,9 @@ function isSearchRequest(text) {
 
     ];
 
-
     for (
-        const phrase of searchPhrases
+        const phrase
+        of searchPhrases
     ) {
 
         if (
@@ -274,7 +263,6 @@ function isSearchRequest(text) {
         }
 
     }
-
 
     return false;
 
@@ -302,9 +290,9 @@ function getSearchQuery(text) {
 
     ];
 
-
     for (
-        const phrase of searchPhrases
+        const phrase
+        of searchPhrases
     ) {
 
         if (
@@ -320,7 +308,6 @@ function getSearchQuery(text) {
         }
 
     }
-
 
     return text.trim();
 
@@ -354,19 +341,16 @@ function updateThemeButton() {
             "themeButton"
         );
 
-
     if (!button) {
 
         return;
 
     }
 
-
     const lightMode =
         document.body.classList.contains(
             "light-mode"
         );
-
 
     if (lightMode) {
 
@@ -389,12 +373,10 @@ function toggleTheme() {
         "light-mode"
     );
 
-
     const lightMode =
         document.body.classList.contains(
             "light-mode"
         );
-
 
     localStorage.setItem(
         "liminalTheme",
@@ -402,7 +384,6 @@ function toggleTheme() {
             ? "light"
             : "dark"
     );
-
 
     updateThemeButton();
 
@@ -416,7 +397,6 @@ function loadTheme() {
             "liminalTheme"
         );
 
-
     if (
         savedTheme === "light"
     ) {
@@ -426,7 +406,6 @@ function loadTheme() {
         );
 
     }
-
 
     updateThemeButton();
 
@@ -444,21 +423,15 @@ function normalizeText(text) {
             .toLowerCase()
             .trim();
 
-
     const replacements = {
 
-        "what's": "what is",
         "whats": "what is",
-
-        "who's": "who is",
-        "whos": "who is",
-
         "wats": "what is",
         "wat": "what",
+        "whos": "who is",
 
         "fav": "favorite",
         "favourite": "favorite",
-
         "colour": "color",
 
         "u": "you",
@@ -468,16 +441,12 @@ function normalizeText(text) {
         "plz": "please",
 
         "im": "i am",
-        "i'm": "i am",
-
         "ive": "i have",
-        "i've": "i have",
 
         "do u": "do you",
         "can u": "can you"
 
     };
-
 
     for (
         const wrong in replacements
@@ -485,7 +454,6 @@ function normalizeText(text) {
 
         const correct =
             replacements[wrong];
-
 
         const regex =
             new RegExp(
@@ -498,7 +466,6 @@ function normalizeText(text) {
                 "g"
             );
 
-
         text =
             text.replace(
                 regex,
@@ -507,13 +474,11 @@ function normalizeText(text) {
 
     }
 
-
     text =
         text.replace(
             /\s+/g,
             " "
         );
-
 
     return text.trim();
 
@@ -528,7 +493,6 @@ function levenshtein(a, b) {
 
     const matrix = [];
 
-
     for (
         let i = 0;
         i <= b.length;
@@ -539,7 +503,6 @@ function levenshtein(a, b) {
 
     }
 
-
     for (
         let j = 0;
         j <= a.length;
@@ -549,7 +512,6 @@ function levenshtein(a, b) {
         matrix[0][j] = j;
 
     }
-
 
     for (
         let i = 1;
@@ -590,7 +552,6 @@ function levenshtein(a, b) {
 
     }
 
-
     return matrix[b.length][a.length];
 
 }
@@ -604,12 +565,10 @@ function similarWord(word, target) {
             target
         );
 
-
     const maxDistance =
         word.length <= 4
             ? 1
             : 2;
-
 
     return distance <= maxDistance;
 
@@ -630,7 +589,6 @@ function cleanMemoryKey(key) {
             )
             .trim();
 
-
     if (
         key.startsWith("my ")
     ) {
@@ -639,7 +597,6 @@ function cleanMemoryKey(key) {
             key.substring(3);
 
     }
-
 
     return key;
 
@@ -651,24 +608,13 @@ function remember(key, value) {
     key =
         cleanMemoryKey(key);
 
-
     memory[key] =
         value;
-
 
     lastTopic =
         key;
 
-
     saveMemory();
-
-
-    console.log(
-        "🧠 Memory saved:",
-        key,
-        "=",
-        value
-    );
 
 }
 
@@ -678,137 +624,7 @@ function getMemory(key) {
     key =
         cleanMemoryKey(key);
 
-
     return memory[key];
-
-}
-
-
-// ==========================================
-// FIND MEMORY KEY
-// ==========================================
-
-function findMemoryKey(text) {
-
-    text =
-        normalizeText(text);
-
-
-    // ======================================
-    // FAVORITE GAME
-    // ======================================
-
-    if (
-        text.includes("favorite game") ||
-        text.includes("what game do i like") ||
-        text.includes("which game do i like") ||
-        text.includes("what videogame do i like") ||
-        text.includes("what video game do i like") ||
-        text.includes("what is my favorite game") ||
-        text.includes("tell me my favorite game") ||
-        text.includes("what is my favorite videogame") ||
-        text.includes("what is my favorite video game")
-    ) {
-
-        return "favorite game";
-
-    }
-
-
-    // ======================================
-    // FAVORITE COLOR
-    // ======================================
-
-    if (
-        text.includes("favorite color") ||
-        text.includes("what color do i like") ||
-        text.includes("which color do i like") ||
-        text.includes("what is my favorite color") ||
-        text.includes("tell me my favorite color")
-    ) {
-
-        return "favorite color";
-
-    }
-
-
-    // ======================================
-    // FAVORITE FOOD
-    // ======================================
-
-    if (
-        text.includes("favorite food") ||
-        text.includes("what food do i like") ||
-        text.includes("which food do i like") ||
-        text.includes("what is my favorite food") ||
-        text.includes("tell me my favorite food")
-    ) {
-
-        return "favorite food";
-
-    }
-
-
-    // ======================================
-    // NAME
-    // ======================================
-
-    if (
-        text === "what is my name" ||
-        text === "who am i" ||
-        text.includes("my name")
-    ) {
-
-        return "name";
-
-    }
-
-
-    // ======================================
-    // LOCATION
-    // ======================================
-
-    if (
-        text.includes("where do i live") ||
-        text.includes("where am i from") ||
-        text.includes("what is my location") ||
-        text.includes("my location")
-    ) {
-
-        return "location";
-
-    }
-
-
-    // ======================================
-    // GENERIC MEMORY MATCH
-    // ======================================
-
-    const memoryKeys =
-        Object.keys(memory);
-
-
-    for (
-        const key of memoryKeys
-    ) {
-
-        const normalizedKey =
-            cleanMemoryKey(key);
-
-
-        if (
-            normalizedKey &&
-            text.includes(normalizedKey)
-        ) {
-
-            return key;
-
-        }
-
-    }
-
-
-    return null;
 
 }
 
@@ -836,9 +652,9 @@ function isCorrection(text) {
 
     ];
 
-
     for (
-        const phrase of correctionPhrases
+        const phrase
+        of correctionPhrases
     ) {
 
         if (
@@ -854,7 +670,6 @@ function isCorrection(text) {
 
     }
 
-
     return false;
 
 }
@@ -864,7 +679,6 @@ function handleCorrection(text) {
 
     const original =
         text.trim();
-
 
     let correctionText =
         original
@@ -886,7 +700,6 @@ function handleCorrection(text) {
             )
             .trim();
 
-
     correctionText =
         normalizeText(
             correctionText
@@ -907,19 +720,18 @@ function handleCorrection(text) {
                 " is "
             );
 
-
         const key =
-            parts[0]
-                .substring(3)
-                .trim();
-
+            cleanMemoryKey(
+                parts[0]
+                    .substring(3)
+                    .trim()
+            );
 
         const value =
             parts
                 .slice(1)
                 .join(" is ")
                 .trim();
-
 
         if (
             key &&
@@ -929,17 +741,13 @@ function handleCorrection(text) {
             const oldValue =
                 memory[key];
 
-
             memory[key] =
                 value;
-
 
             lastTopic =
                 key;
 
-
             saveMemory();
-
 
             corrections.push({
 
@@ -960,21 +768,18 @@ function handleCorrection(text) {
 
             });
 
-
             saveCorrections();
-
 
             setConfidence(
                 "high"
             );
-
 
             if (
                 oldValue
             ) {
 
                 return (
-                    "You're right! I'll update my memory. " +
+                    "You're right! I've updated my memory. " +
                     "Your " +
                     key +
                     " is now " +
@@ -983,7 +788,6 @@ function handleCorrection(text) {
                 );
 
             }
-
 
             return (
                 "Got it! I'll remember that your " +
@@ -1007,11 +811,24 @@ function handleCorrection(text) {
         correctionText.startsWith("it's ")
     ) {
 
-        const value =
-            correctionText.substring(
-                6
-            ).trim();
+        let value;
 
+        if (
+            correctionText.startsWith("it is ")
+        ) {
+
+            value =
+                correctionText.substring(6);
+
+        } else {
+
+            value =
+                correctionText.substring(6);
+
+        }
+
+        value =
+            value.trim();
 
         if (
             lastTopic &&
@@ -1021,13 +838,10 @@ function handleCorrection(text) {
             const oldValue =
                 memory[lastTopic];
 
-
             memory[lastTopic] =
                 value;
 
-
             saveMemory();
-
 
             corrections.push({
 
@@ -1048,14 +862,11 @@ function handleCorrection(text) {
 
             });
 
-
             saveCorrections();
-
 
             setConfidence(
                 "high"
             );
-
 
             return (
                 "You're right! I've corrected my memory. " +
@@ -1099,14 +910,11 @@ function handleCorrection(text) {
 
         });
 
-
         saveCorrections();
-
 
         setConfidence(
             "low"
         );
-
 
         return (
             "Got it. I know my previous answer was incorrect, " +
@@ -1119,16 +927,98 @@ function handleCorrection(text) {
 
     }
 
-
     setConfidence(
         "low"
     );
-
 
     return (
         "Got it. I understand that my previous answer was wrong. " +
         "Tell me what the correct answer is and I'll learn from it."
     );
+
+}
+
+
+// ==========================================
+// FIND MEMORY KEY
+// ==========================================
+
+function findMemoryKey(text) {
+
+    text =
+        normalizeText(
+            text
+        );
+
+
+    if (
+        text.includes(
+            "favorite color"
+        ) ||
+        text.includes(
+            "what color do i like"
+        )
+    ) {
+
+        return "favorite color";
+
+    }
+
+
+    if (
+        text.includes(
+            "favorite game"
+        ) ||
+        text.includes(
+            "what game do i like"
+        )
+    ) {
+
+        return "favorite game";
+
+    }
+
+
+    if (
+        text.includes(
+            "favorite food"
+        ) ||
+        text.includes(
+            "what food do i like"
+        )
+    ) {
+
+        return "favorite food";
+
+    }
+
+
+    if (
+        text.includes(
+            "my name"
+        )
+    ) {
+
+        return "name";
+
+    }
+
+
+    if (
+        text.includes(
+            "where do i live"
+        ) ||
+        text.includes(
+            "my location"
+        )
+    ) {
+
+        return "location";
+
+    }
+
+
+    return null;
 
 }
 
@@ -1152,7 +1042,6 @@ function needsClarification(text) {
 
     ];
 
-
     return ambiguous.includes(
         text
     );
@@ -1165,15 +1054,12 @@ function askClarification(text) {
     waitingForClarification =
         true;
 
-
     lastQuestion =
         text;
-
 
     setConfidence(
         "low"
     );
-
 
     if (
         text === "what"
@@ -1185,7 +1071,6 @@ function askClarification(text) {
 
     }
 
-
     if (
         text === "why"
     ) {
@@ -1195,7 +1080,6 @@ function askClarification(text) {
         );
 
     }
-
 
     if (
         text === "how"
@@ -1207,7 +1091,6 @@ function askClarification(text) {
 
     }
 
-
     if (
         text === "which"
     ) {
@@ -1217,7 +1100,6 @@ function askClarification(text) {
         );
 
     }
-
 
     if (
         text === "when"
@@ -1229,7 +1111,6 @@ function askClarification(text) {
 
     }
 
-
     if (
         text === "where"
     ) {
@@ -1239,7 +1120,6 @@ function askClarification(text) {
         );
 
     }
-
 
     return (
         "Could you give me a little more detail?"
@@ -1266,7 +1146,6 @@ function smartUnknown(text) {
                     word.length > 0
             );
 
-
     const memoryWords = [
 
         "my",
@@ -1282,15 +1161,14 @@ function smartUnknown(text) {
 
     ];
 
-
     let memoryScore = 0;
-
 
     words.forEach(
         word => {
 
             for (
-                const memoryWord of memoryWords
+                const memoryWord
+                of memoryWords
             ) {
 
                 if (
@@ -1312,7 +1190,6 @@ function smartUnknown(text) {
         }
     );
 
-
     if (
         memoryScore >= 2
     ) {
@@ -1320,7 +1197,6 @@ function smartUnknown(text) {
         setConfidence(
             "medium"
         );
-
 
         return (
             "I think you're asking about something I remember. " +
@@ -1332,25 +1208,29 @@ function smartUnknown(text) {
 
 
     const timeWords = [
+
         "time",
         "clock",
         "hour"
+
     ];
 
-
     const dateWords = [
+
         "date",
         "day",
         "today"
+
     ];
 
-
     for (
-        const word of words
+        const word
+        of words
     ) {
 
         for (
-            const timeWord of timeWords
+            const timeWord
+            of timeWords
         ) {
 
             if (
@@ -1364,7 +1244,6 @@ function smartUnknown(text) {
                     "medium"
                 );
 
-
                 return (
                     "I think you're asking about the time. " +
                     "Try asking \"what time is it?\""
@@ -1376,7 +1255,8 @@ function smartUnknown(text) {
 
 
         for (
-            const dateWord of dateWords
+            const dateWord
+            of dateWords
         ) {
 
             if (
@@ -1389,7 +1269,6 @@ function smartUnknown(text) {
                 setConfidence(
                     "medium"
                 );
-
 
                 return (
                     "I think you're asking about the date. " +
@@ -1417,7 +1296,6 @@ function smartUnknown(text) {
             "medium"
         );
 
-
         return (
             "I think you want a joke. " +
             "Try asking \"tell me a joke.\""
@@ -1429,7 +1307,6 @@ function smartUnknown(text) {
     setConfidence(
         "low"
     );
-
 
     return (
         "I'm not sure what you mean. Could you rephrase that?"
@@ -1448,7 +1325,6 @@ function think(originalText) {
         normalizeText(
             originalText
         );
-
 
     setConfidence(
         "high"
@@ -1471,79 +1347,6 @@ function think(originalText) {
 
 
     // ======================================
-    // IMPORTANT:
-    // CHECK MEMORY BEFORE CLARIFICATION
-    // ======================================
-
-    const possibleMemoryKey =
-        findMemoryKey(
-            text
-        );
-
-
-    if (
-        possibleMemoryKey
-    ) {
-
-        const value =
-            getMemory(
-                possibleMemoryKey
-            );
-
-
-        if (
-            value !== undefined &&
-            value !== null &&
-            value !== ""
-        ) {
-
-            lastTopic =
-                possibleMemoryKey;
-
-
-            setConfidence(
-                "high"
-            );
-
-
-            console.log(
-                "🧠 MEMORY HIT:",
-                possibleMemoryKey,
-                "=",
-                value
-            );
-
-
-            return (
-                "Your " +
-                cleanMemoryKey(
-                    possibleMemoryKey
-                ) +
-                " is " +
-                value +
-                "."
-            );
-
-        }
-
-
-        setConfidence(
-            "low"
-        );
-
-
-        return (
-            "I don't remember your " +
-            cleanMemoryKey(
-                possibleMemoryKey
-            ) +
-            " yet."
-        );
-
-    }
-
-
-    // ======================================
     // CLARIFICATION
     // ======================================
 
@@ -1558,7 +1361,6 @@ function think(originalText) {
         );
 
     }
-
 
     waitingForClarification =
         false;
@@ -1580,7 +1382,6 @@ function think(originalText) {
 
         const now =
             new Date();
-
 
         return (
             "The current time is " +
@@ -1615,7 +1416,6 @@ function think(originalText) {
 
         const now =
             new Date();
-
 
         return (
             "Today is " +
@@ -1703,7 +1503,7 @@ function think(originalText) {
     ) {
 
         return (
-            "I'm Liminal AI 0.7."
+            "I'm Liminal AI 0.75."
         );
 
     }
@@ -1763,7 +1563,6 @@ function think(originalText) {
 
         ];
 
-
         return randomResponse(
             jokes
         );
@@ -1786,20 +1585,19 @@ function think(originalText) {
                 14
             ).trim();
 
-
         const parts =
             information.split(
                 " is "
             );
-
 
         if (
             parts.length >= 2
         ) {
 
             const key =
-                parts[0].trim();
-
+                cleanMemoryKey(
+                    parts[0].trim()
+                );
 
             const value =
                 parts
@@ -1807,25 +1605,66 @@ function think(originalText) {
                     .join(" is ")
                     .trim();
 
-
-            remember(
-                key,
+            if (
+                key &&
                 value
-            );
+            ) {
 
+                const oldValue =
+                    memory[key];
 
-            return (
-                "I'll remember that your " +
-                cleanMemoryKey(
-                    key
-                ) +
-                " is " +
-                value +
-                "."
-            );
+                remember(
+                    key,
+                    value
+                );
+
+                if (
+                    oldValue
+                ) {
+
+                    corrections.push({
+
+                        type:
+                            "memory_update",
+
+                        key:
+                            key,
+
+                        oldValue:
+                            oldValue,
+
+                        newValue:
+                            value,
+
+                        time:
+                            new Date().toISOString()
+
+                    });
+
+                    saveCorrections();
+
+                    return (
+                        "Got it. I've updated my memory. " +
+                        "Your " +
+                        key +
+                        " is now " +
+                        value +
+                        "."
+                    );
+
+                }
+
+                return (
+                    "I'll remember that your " +
+                    key +
+                    " is " +
+                    value +
+                    "."
+                );
+
+            }
 
         }
-
 
         return (
             "Try saying: remember that my favorite color is yellow."
@@ -1836,6 +1675,9 @@ function think(originalText) {
 
     // ======================================
     // NATURAL MEMORY
+    //
+    // IMPORTANT 0.75 FIX:
+    // THIS MUST HAPPEN BEFORE MEMORY QUESTIONS
     // ======================================
 
     if (
@@ -1848,12 +1690,12 @@ function think(originalText) {
                 " is "
             );
 
-
         const key =
-            parts[0]
-                .substring(3)
-                .trim();
-
+            cleanMemoryKey(
+                parts[0]
+                    .substring(3)
+                    .trim()
+            );
 
         const value =
             parts
@@ -1861,22 +1703,64 @@ function think(originalText) {
                 .join(" is ")
                 .trim();
 
-
-        remember(
-            key,
+        if (
+            key &&
             value
-        );
+        ) {
 
+            const oldValue =
+                memory[key];
 
-        return (
-            "Got it. I'll remember that your " +
-            cleanMemoryKey(
-                key
-            ) +
-            " is " +
-            value +
-            "."
-        );
+            remember(
+                key,
+                value
+            );
+
+            if (
+                oldValue
+            ) {
+
+                corrections.push({
+
+                    type:
+                        "memory_update",
+
+                    key:
+                        key,
+
+                    oldValue:
+                        oldValue,
+
+                    newValue:
+                        value,
+
+                    time:
+                        new Date().toISOString()
+
+                });
+
+                saveCorrections();
+
+                return (
+                    "Got it. I've updated my memory. " +
+                    "Your " +
+                    key +
+                    " is now " +
+                    value +
+                    "."
+                );
+
+            }
+
+            return (
+                "Got it. I'll remember that your " +
+                key +
+                " is " +
+                value +
+                "."
+            );
+
+        }
 
     }
 
@@ -1896,12 +1780,10 @@ function think(originalText) {
                 5
             ).trim();
 
-
         remember(
             "identity",
             value
         );
-
 
         return (
             "Got it. I'll remember that you are " +
@@ -1927,17 +1809,59 @@ function think(originalText) {
                 10
             ).trim();
 
-
         remember(
             "location",
             value
         );
 
-
         return (
             "Got it. I'll remember that you live in " +
             value +
             "."
+        );
+
+    }
+
+
+    // ======================================
+    // MEMORY QUESTION
+    // ======================================
+
+    const possibleKey =
+        findMemoryKey(
+            text
+        );
+
+    if (
+        possibleKey
+    ) {
+
+        const value =
+            getMemory(
+                possibleKey
+            );
+
+        if (
+            value
+        ) {
+
+            lastTopic =
+                possibleKey;
+
+            return (
+                "Your " +
+                possibleKey +
+                " is " +
+                value +
+                "."
+            );
+
+        }
+
+        return (
+            "I don't remember your " +
+            possibleKey +
+            " yet."
         );
 
     }
@@ -1956,33 +1880,44 @@ function think(originalText) {
         )
     ) {
 
-        const key =
-            text.substring(
-                11
-            );
+        let key;
 
+        if (
+            text.startsWith(
+                "what is my "
+            )
+        ) {
+
+            key =
+                text.substring(
+                    11
+                );
+
+        } else {
+
+            key =
+                text.substring(
+                    11
+                );
+
+        }
 
         const cleanKey =
             cleanMemoryKey(
                 key
             );
 
-
         const value =
             getMemory(
                 cleanKey
             );
 
-
         if (
-            value !== undefined &&
-            value !== null &&
-            value !== ""
+            value
         ) {
 
             lastTopic =
                 cleanKey;
-
 
             return (
                 "Your " +
@@ -1993,12 +1928,6 @@ function think(originalText) {
             );
 
         }
-
-
-        setConfidence(
-            "low"
-        );
-
 
         return (
             "I don't remember your " +
@@ -2024,7 +1953,6 @@ function think(originalText) {
                 memory
             );
 
-
         if (
             keys.length === 0
         ) {
@@ -2035,10 +1963,8 @@ function think(originalText) {
 
         }
 
-
         let response =
             "Here's what I remember:\n\n";
-
 
         keys.forEach(
             function(key) {
@@ -2052,7 +1978,6 @@ function think(originalText) {
 
             }
         );
-
 
         return response;
 
@@ -2079,10 +2004,8 @@ function think(originalText) {
 
         }
 
-
         let response =
             "Here's what I've learned:\n\n";
-
 
         corrections.forEach(
             function(item, index) {
@@ -2117,7 +2040,6 @@ function think(originalText) {
             }
         );
 
-
         return response;
 
     }
@@ -2128,33 +2050,40 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith("forget my ") ||
-        text.startsWith("forget ")
+        text.startsWith(
+            "forget my "
+        ) ||
+        text.startsWith(
+            "forget "
+        )
     ) {
 
         let key;
 
-
         if (
-            text.startsWith("forget my ")
+            text.startsWith(
+                "forget my "
+            )
         ) {
 
             key =
-                text.substring(10);
+                text.substring(
+                    10
+                );
 
         } else {
 
             key =
-                text.substring(7);
+                text.substring(
+                    7
+                );
 
         }
-
 
         key =
             cleanMemoryKey(
                 key
             );
-
 
         if (
             memory[key]
@@ -2164,7 +2093,6 @@ function think(originalText) {
 
             saveMemory();
 
-
             return (
                 "Okay, I forgot your " +
                 key +
@@ -2172,7 +2100,6 @@ function think(originalText) {
             );
 
         }
-
 
         return (
             "I don't have a memory about your " +
@@ -2205,7 +2132,6 @@ function think(originalText) {
                     lastTopic
                 );
 
-
             if (
                 value
             ) {
@@ -2221,12 +2147,6 @@ function think(originalText) {
             }
 
         }
-
-
-        setConfidence(
-            "low"
-        );
-
 
         return (
             "I'm not sure what \"it\" refers to yet."
@@ -2252,7 +2172,6 @@ function think(originalText) {
                 "medium"
             );
 
-
             return (
                 "Because that's the information I currently " +
                 "have stored about your " +
@@ -2262,11 +2181,9 @@ function think(originalText) {
 
         }
 
-
         setConfidence(
             "low"
         );
-
 
         return (
             "I'm not sure what you're referring to."
@@ -2274,6 +2191,10 @@ function think(originalText) {
 
     }
 
+
+    // ======================================
+    // WHICH ONE
+    // ======================================
 
     if (
         text === "which one" ||
@@ -2289,7 +2210,6 @@ function think(originalText) {
                     lastTopic
                 );
 
-
             if (
                 value
             ) {
@@ -2304,11 +2224,9 @@ function think(originalText) {
 
         }
 
-
         setConfidence(
             "low"
         );
-
 
         return (
             "I'm not sure which one you mean."
@@ -2336,7 +2254,6 @@ function think(originalText) {
                     ')'
                 )();
 
-
             return (
                 "The answer is " +
                 answer +
@@ -2348,7 +2265,6 @@ function think(originalText) {
             setConfidence(
                 "low"
             );
-
 
             return (
                 "I couldn't calculate that."
@@ -2396,12 +2312,10 @@ async function sendMessage() {
             "userInput"
         );
 
-
     const messages =
         document.getElementById(
             "messages"
         );
-
 
     if (
         !input ||
@@ -2412,10 +2326,8 @@ async function sendMessage() {
 
     }
 
-
     const originalText =
         input.value.trim();
-
 
     if (
         originalText === ""
@@ -2424,7 +2336,6 @@ async function sendMessage() {
         return;
 
     }
-
 
     const normalized =
         normalizeText(
@@ -2441,22 +2352,17 @@ async function sendMessage() {
             "div"
         );
 
-
     userMessage.className =
         "user";
 
-
     userMessage.textContent =
         originalText;
-
 
     messages.appendChild(
         userMessage
     );
 
-
     input.value = "";
-
 
     messages.scrollTop =
         messages.scrollHeight;
@@ -2471,26 +2377,22 @@ async function sendMessage() {
             "div"
         );
 
-
     aiMessage.className =
         "ai";
-
 
     aiMessage.textContent =
         "Thinking... 🤔";
 
-
     messages.appendChild(
         aiMessage
     );
-
 
     messages.scrollTop =
         messages.scrollHeight;
 
 
     // ======================================
-    // EXPLICIT SEARCH
+    // SEARCH REQUEST
     // ======================================
 
     if (
@@ -2504,7 +2406,6 @@ async function sendMessage() {
                 normalized
             );
 
-
         if (
             query
         ) {
@@ -2512,12 +2413,10 @@ async function sendMessage() {
             aiMessage.textContent =
                 "Searching... 🌐";
 
-
             const searchResult =
                 await searchWeb(
                     query
                 );
-
 
             if (
                 searchResult.success &&
@@ -2528,7 +2427,6 @@ async function sendMessage() {
                     "Search results for: " +
                     query +
                     "\n\n";
-
 
                 if (
                     searchResult.results &&
@@ -2549,7 +2447,6 @@ async function sendMessage() {
                                 ) +
                                 "\n";
 
-
                             if (
                                 result.snippet
                             ) {
@@ -2560,7 +2457,6 @@ async function sendMessage() {
 
                             }
 
-
                             if (
                                 result.url
                             ) {
@@ -2570,7 +2466,6 @@ async function sendMessage() {
                                     "\n";
 
                             }
-
 
                             response +=
                                 "\n";
@@ -2585,12 +2480,10 @@ async function sendMessage() {
 
                 }
 
-
                 displayAIResponse(
                     aiMessage,
                     response
                 );
-
 
                 lastResponse =
                     response;
@@ -2599,19 +2492,25 @@ async function sendMessage() {
 
                 displayAIResponse(
                     aiMessage,
-                    "The search endpoint is working, but a real search provider hasn't been connected yet. 🌐"
+                    "The search service is currently unavailable. 🌐"
                 );
-
 
                 lastResponse =
                     aiMessage.textContent;
 
-            }
+                setConfidence(
+                    "low"
+                );
 
+            }
 
             messages.scrollTop =
                 messages.scrollHeight;
 
+            console.log(
+                "Liminal confidence:",
+                lastConfidence
+            );
 
             return;
 
@@ -2621,92 +2520,8 @@ async function sendMessage() {
 
 
     // ======================================
-    // LOCAL BRAIN FIRST
+    // BACKEND CHAT
     // ======================================
-
-    const localReply =
-        think(
-            originalText
-        );
-
-
-    console.log(
-        "Liminal local confidence:",
-        lastConfidence
-    );
-
-
-    // ======================================
-    // HIGH CONFIDENCE
-    // ======================================
-
-    if (
-        lastConfidence === "high"
-    ) {
-
-        displayAIResponse(
-            aiMessage,
-            localReply
-        );
-
-
-        lastResponse =
-            localReply;
-
-
-        messages.scrollTop =
-            messages.scrollHeight;
-
-
-        console.log(
-            "🧠 Local 0.6 brain answered."
-        );
-
-
-        return;
-
-    }
-
-
-    // ======================================
-    // MEDIUM CONFIDENCE
-    // ======================================
-
-    if (
-        lastConfidence === "medium"
-    ) {
-
-        displayAIResponse(
-            aiMessage,
-            localReply
-        );
-
-
-        lastResponse =
-            localReply;
-
-
-        messages.scrollTop =
-            messages.scrollHeight;
-
-
-        console.log(
-            "🧠 Local brain answered with medium confidence."
-        );
-
-
-        return;
-
-    }
-
-
-    // ======================================
-    // LOW CONFIDENCE
-    // ======================================
-
-    aiMessage.textContent =
-        "Thinking harder... 🧠";
-
 
     try {
 
@@ -2737,7 +2552,6 @@ async function sendMessage() {
                 }
             );
 
-
         if (
             !response.ok
         ) {
@@ -2749,10 +2563,8 @@ async function sendMessage() {
 
         }
 
-
         const data =
             await response.json();
-
 
         if (
             data.success &&
@@ -2764,18 +2576,11 @@ async function sendMessage() {
                 data.reply
             );
 
-
             lastResponse =
                 data.reply;
 
-
             setConfidence(
-                "medium"
-            );
-
-
-            console.log(
-                "🌐 Backend answered."
+                "high"
             );
 
         } else {
@@ -2792,26 +2597,32 @@ async function sendMessage() {
             "Backend unavailable. Using local Liminal AI."
         );
 
-
         console.error(
             error
         );
 
+        const localReply =
+            think(
+                originalText
+            );
 
         displayAIResponse(
             aiMessage,
             localReply
         );
 
-
         lastResponse =
             localReply;
 
     }
 
-
     messages.scrollTop =
         messages.scrollHeight;
+
+    console.log(
+        "Liminal confidence:",
+        lastConfidence
+    );
 
 }
 
@@ -2828,7 +2639,6 @@ document.addEventListener(
             document.getElementById(
                 "userInput"
             );
-
 
         if (
             input
@@ -2852,12 +2662,9 @@ document.addEventListener(
 
         }
 
-
         loadTheme();
 
-
         testBackend();
-
 
         getBackendInfo();
 
@@ -2876,7 +2683,6 @@ function clearChat() {
             "messages"
         );
 
-
     if (
         !messages
     ) {
@@ -2885,28 +2691,22 @@ function clearChat() {
 
     }
 
-
     messages.innerHTML = "";
-
 
     const welcome =
         document.createElement(
             "div"
         );
 
-
     welcome.className =
         "ai";
 
-
     welcome.textContent =
-        "Hello! I'm Liminal AI 0.7.";
-
+        "Hello! I'm Liminal AI 0.75.";
 
     messages.appendChild(
         welcome
     );
-
 
     lastTopic =
         null;
@@ -2922,9 +2722,5 @@ function clearChat() {
 
     waitingForClarification =
         false;
-
-    setConfidence(
-        "high"
-    );
 
 }
