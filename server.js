@@ -1,6 +1,7 @@
+
 // ============================================================
 // LIMINAL AI BACKEND v0.75
-// BUG FIXES + SEARCH HARDENING + RATE LIMITING
+// WEB KNOWLEDGE + SEARCH HARDENING + RATE LIMITING
 // ============================================================
 
 const express = require("express");
@@ -16,8 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 const VERSION = "0.75.0";
 
-// Your GitHub Pages frontend.
-// Change this if your frontend URL is different.
+// Your GitHub Pages frontend
 const ALLOWED_ORIGINS = [
     "https://jacobososaf-commits.github.io",
     "http://localhost:3000",
@@ -34,7 +34,7 @@ app.use(
         origin: function (origin, callback) {
 
             // Allow requests without an Origin header.
-            // Useful for curl, Render health checks, etc.
+            // Useful for direct requests and Render health checks.
             if (!origin) {
                 return callback(null, true);
             }
@@ -57,7 +57,7 @@ app.use(
 );
 
 // ============================================================
-// BASIC REQUEST LOGGING
+// REQUEST LOGGING
 // ============================================================
 
 app.use((req, res, next) => {
@@ -67,16 +67,20 @@ app.use((req, res, next) => {
     );
 
     next();
+
 });
 
 // ============================================================
-// RATE LIMITING
+// GENERAL RATE LIMITING
 // ============================================================
 
 const rateLimitStore = new Map();
 
-const RATE_LIMIT_WINDOW = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 30;
+const RATE_LIMIT_WINDOW =
+    60 * 1000;
+
+const MAX_REQUESTS_PER_WINDOW =
+    30;
 
 function getClientIP(req) {
 
@@ -95,6 +99,7 @@ function getClientIP(req) {
         req.socket.remoteAddress ||
         "unknown"
     );
+
 }
 
 function rateLimit(req, res, next) {
@@ -122,7 +127,6 @@ function rateLimit(req, res, next) {
 
     }
 
-    // Reset expired window
     if (
         now - record.start >=
         RATE_LIMIT_WINDOW
@@ -165,9 +169,13 @@ function rateLimit(req, res, next) {
     }
 
     next();
+
 }
 
-// Clean old IP entries periodically
+// ============================================================
+// CLEAN GENERAL RATE-LIMIT RECORDS
+// ============================================================
+
 setInterval(() => {
 
     const now =
@@ -192,10 +200,11 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW);
 
 // ============================================================
-// SEARCH RATE LIMIT
+// SEARCH RATE LIMITING
 // ============================================================
 
-const searchRateLimitStore = new Map();
+const searchRateLimitStore =
+    new Map();
 
 const SEARCH_WINDOW =
     60 * 1000;
@@ -203,7 +212,11 @@ const SEARCH_WINDOW =
 const MAX_SEARCH_REQUESTS =
     10;
 
-function searchRateLimit(req, res, next) {
+function searchRateLimit(
+    req,
+    res,
+    next
+) {
 
     const ip =
         getClientIP(req);
@@ -272,6 +285,7 @@ function searchRateLimit(req, res, next) {
     }
 
     next();
+
 }
 
 // ============================================================
@@ -284,11 +298,14 @@ app.get("/", (req, res) => {
 
         success: true,
 
-        name: "Liminal AI Backend",
+        name:
+            "Liminal AI Backend",
 
-        version: VERSION,
+        version:
+            VERSION,
 
-        status: "online"
+        status:
+            "online"
 
     });
 
@@ -346,6 +363,8 @@ app.get("/api/info", (req, res) => {
 
             "Web search",
 
+            "DuckDuckGo search",
+
             "Search rate limiting",
 
             "Chat rate limiting",
@@ -357,7 +376,10 @@ app.get("/api/info", (req, res) => {
         ],
 
         search:
-            "DuckDuckGo HTML fallback",
+            "DuckDuckGo HTML",
+
+        chat:
+            "Handled by frontend",
 
         status:
             "online"
@@ -393,29 +415,39 @@ function cleanSearchText(text) {
 
 }
 
+// ============================================================
+// HTML ENTITY DECODER
+// ============================================================
+
 function decodeHTML(text) {
 
     return String(text)
+
         .replace(
             /&amp;/g,
             "&"
         )
+
         .replace(
             /&quot;/g,
             '"'
         )
+
         .replace(
             /&#x27;/g,
             "'"
         )
+
         .replace(
             /&#39;/g,
             "'"
         )
+
         .replace(
             /&lt;/g,
             "<"
         )
+
         .replace(
             /&gt;/g,
             ">"
@@ -430,7 +462,9 @@ function decodeHTML(text) {
 async function searchDuckDuckGo(query) {
 
     const encodedQuery =
-        encodeURIComponent(query);
+        encodeURIComponent(
+            query
+        );
 
     const url =
         `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
@@ -444,9 +478,15 @@ async function searchDuckDuckGo(query) {
                     method: "GET",
 
                     headers: {
+
                         "User-Agent":
-                            "Mozilla/5.0 (compatible; LiminalAI/0.75)"
+                            "Mozilla/5.0 (compatible; LiminalAI/0.75)",
+
+                        "Accept":
+                            "text/html"
+
                     }
+
                 }
             );
 
@@ -477,7 +517,7 @@ async function searchDuckDuckGo(query) {
         const results = [];
 
         // ====================================================
-        // RESULT BLOCKS
+        // FIND RESULT BLOCKS
         // ====================================================
 
         const resultRegex =
@@ -501,9 +541,9 @@ async function searchDuckDuckGo(query) {
 
             }
 
-            // -----------------------------------------------
+            // =================================================
             // TITLE + URL
-            // -----------------------------------------------
+            // =================================================
 
             const titleMatch =
                 block.match(
@@ -524,9 +564,9 @@ async function searchDuckDuckGo(query) {
             let title =
                 titleMatch[2];
 
-            // -----------------------------------------------
+            // =================================================
             // SNIPPET
-            // -----------------------------------------------
+            // =================================================
 
             const snippetMatch =
                 block.match(
@@ -538,7 +578,10 @@ async function searchDuckDuckGo(query) {
                     ? snippetMatch[1]
                     : "";
 
-            // Remove HTML tags
+            // =================================================
+            // REMOVE HTML
+            // =================================================
+
             title =
                 title.replace(
                     /<[^>]+>/g,
@@ -551,16 +594,19 @@ async function searchDuckDuckGo(query) {
                     ""
                 );
 
-            // Decode HTML entities
+            // =================================================
+            // DECODE HTML
+            // =================================================
+
             title =
                 decodeHTML(title);
 
             snippet =
                 decodeHTML(snippet);
 
-            // -----------------------------------------------
+            // =================================================
             // CLEAN URL
-            // -----------------------------------------------
+            // =================================================
 
             try {
 
@@ -575,8 +621,11 @@ async function searchDuckDuckGo(query) {
                 }
 
                 const parsed =
-                    new URL(resultURL);
+                    new URL(
+                        resultURL
+                    );
 
+                // DuckDuckGo redirect URL
                 if (
                     parsed.hostname.includes(
                         "duckduckgo.com"
@@ -599,19 +648,25 @@ async function searchDuckDuckGo(query) {
                 error
             ) {
 
-                // Keep original URL if parsing fails.
+                console.log(
+                    "Could not parse result URL."
+                );
 
             }
 
-            // -----------------------------------------------
-            // ADD RESULT
-            // -----------------------------------------------
+            // =================================================
+            // CLEAN TEXT
+            // =================================================
 
             const cleanedTitle =
-                cleanSearchText(title);
+                cleanSearchText(
+                    title
+                );
 
             const cleanedSnippet =
-                cleanSearchText(snippet);
+                cleanSearchText(
+                    snippet
+                );
 
             if (
                 !cleanedTitle ||
@@ -621,6 +676,10 @@ async function searchDuckDuckGo(query) {
                 continue;
 
             }
+
+            // =================================================
+            // ADD RESULT
+            // =================================================
 
             results.push({
 
@@ -641,9 +700,6 @@ async function searchDuckDuckGo(query) {
         // SEARCH HARDENING
         // ====================================================
 
-        // If HTML was received but our parser found nothing,
-        // don't pretend there were simply no results.
-
         if (
             results.length === 0
         ) {
@@ -660,7 +716,8 @@ async function searchDuckDuckGo(query) {
 
             available: true,
 
-            results
+            results:
+                results
 
         };
 
@@ -707,9 +764,9 @@ app.get(
                 query
             );
 
-        // -----------------------------------------------
+        // ====================================================
         // VALIDATION
-        // -----------------------------------------------
+        // ====================================================
 
         if (
             !query
@@ -728,7 +785,6 @@ app.get(
 
         }
 
-        // Prevent enormous search queries
         if (
             query.length > 300
         ) {
@@ -750,14 +806,18 @@ app.get(
             `🔎 Search: "${query}"`
         );
 
+        // ====================================================
+        // SEARCH
+        // ====================================================
+
         const result =
             await searchDuckDuckGo(
                 query
             );
 
-        // -----------------------------------------------
+        // ====================================================
         // SEARCH FAILED
-        // -----------------------------------------------
+        // ====================================================
 
         if (
             !result.success
@@ -778,9 +838,9 @@ app.get(
 
         }
 
-        // -----------------------------------------------
+        // ====================================================
         // SUCCESS
-        // -----------------------------------------------
+        // ====================================================
 
         return res.json({
 
@@ -802,6 +862,17 @@ app.get(
 // ============================================================
 // CHAT ENDPOINT
 // ============================================================
+//
+// IMPORTANT:
+//
+// Liminal's actual conversation system is in script.js.
+//
+// The backend does NOT replace it.
+//
+// This endpoint simply confirms that the backend is alive.
+// script.js should continue handling normal Liminal replies.
+//
+// ============================================================
 
 app.post(
     "/api/chat",
@@ -811,6 +882,10 @@ app.post(
         const message =
             req.body &&
             req.body.message;
+
+        // ====================================================
+        // VALIDATION
+        // ====================================================
 
         if (
             typeof message !==
@@ -862,28 +937,31 @@ app.post(
         }
 
         console.log(
-            `💬 Chat message: "${cleanedMessage}"`
+            `💬 Chat message received: "${cleanedMessage}"`
         );
 
         // ====================================================
         // IMPORTANT
         // ====================================================
         //
-        // Liminal's actual memory/understanding system lives
-        // in script.js right now.
+        // DO NOT generate a fake AI response here.
         //
-        // The backend should NOT replace that system.
+        // The frontend handles Liminal's actual thinking,
+        // memory, confidence, corrections, and responses.
         //
-        // This endpoint exists so the frontend can verify that
-        // the backend is alive and ready for future backend AI.
+        // The backend simply acknowledges the request.
+        //
         // ====================================================
 
         return res.json({
 
             success: true,
 
-            reply:
-                "Liminal AI's backend is online, but no remote AI chat provider is connected yet.",
+            backend:
+                "online",
+
+            handledBy:
+                "frontend",
 
             version:
                 VERSION
@@ -985,11 +1063,15 @@ app.listen(
         );
 
         console.log(
-            "🌐 Search hardening: ENABLED"
+            "🌐 DuckDuckGo search: ENABLED"
         );
 
         console.log(
             "🛡️ CORS protection: ENABLED"
+        );
+
+        console.log(
+            "🧠 Frontend AI system: ENABLED"
         );
 
         console.log(
@@ -1000,3 +1082,4 @@ app.listen(
 
     }
 );
+
