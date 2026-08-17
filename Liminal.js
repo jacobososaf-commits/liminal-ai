@@ -24,10 +24,12 @@ let memory =
     );
 
 function saveMemory() {
+
     localStorage.setItem(
         "liminalMemory",
         JSON.stringify(memory)
     );
+
 }
 
 
@@ -41,10 +43,12 @@ let corrections =
     );
 
 function saveCorrections() {
+
     localStorage.setItem(
         "liminalCorrections",
         JSON.stringify(corrections)
     );
+
 }
 
 
@@ -60,7 +64,9 @@ let waitingForClarification = false;
 let lastConfidence = "high";
 
 function setConfidence(level) {
+
     lastConfidence = level;
+
 }
 
 
@@ -75,6 +81,7 @@ function normalizeText(text) {
         .trim();
 
     const replacements = {
+
         "whats": "what is",
         "wats": "what is",
         "wat": "what",
@@ -88,29 +95,34 @@ function normalizeText(text) {
         "ive": "i have",
         "u": "you",
         "ur": "your"
+
     };
 
     for (const wrong in replacements) {
 
-        const regex = new RegExp(
-            "\\b" +
-            wrong.replace(
-                /[.*+?^${}()|[\]\\]/g,
-                "\\$&"
-            ) +
-            "\\b",
-            "g"
-        );
+        const regex =
+            new RegExp(
+                "\\b" +
+                wrong.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    "\\$&"
+                ) +
+                "\\b",
+                "g"
+            );
 
-        text = text.replace(
-            regex,
-            replacements[wrong]
-        );
+        text =
+            text.replace(
+                regex,
+                replacements[wrong]
+            );
+
     }
 
     return text
         .replace(/\s+/g, " ")
         .trim();
+
 }
 
 
@@ -122,17 +134,37 @@ function levenshtein(a, b) {
 
     const matrix = [];
 
-    for (let i = 0; i <= b.length; i++) {
+    for (
+        let i = 0;
+        i <= b.length;
+        i++
+    ) {
+
         matrix[i] = [i];
+
     }
 
-    for (let j = 0; j <= a.length; j++) {
+    for (
+        let j = 0;
+        j <= a.length;
+        j++
+    ) {
+
         matrix[0][j] = j;
+
     }
 
-    for (let i = 1; i <= b.length; i++) {
+    for (
+        let i = 1;
+        i <= b.length;
+        i++
+    ) {
 
-        for (let j = 1; j <= a.length; j++) {
+        for (
+            let j = 1;
+            j <= a.length;
+            j++
+        ) {
 
             if (
                 b.charAt(i - 1) ===
@@ -146,27 +178,41 @@ function levenshtein(a, b) {
 
                 matrix[i][j] =
                     Math.min(
+
                         matrix[i - 1][j - 1] + 1,
+
                         matrix[i][j - 1] + 1,
+
                         matrix[i - 1][j] + 1
+
                     );
+
             }
+
         }
+
     }
 
     return matrix[b.length][a.length];
+
 }
 
 
 function similarWord(word, target) {
 
     const distance =
-        levenshtein(word, target);
+        levenshtein(
+            word,
+            target
+        );
 
     const maxDistance =
-        word.length <= 4 ? 1 : 2;
+        word.length <= 4
+            ? 1
+            : 2;
 
     return distance <= maxDistance;
+
 }
 
 
@@ -180,18 +226,23 @@ function cleanMemoryKey(key) {
         .replace(/[?!.]/g, "")
         .replace(/^my\s+/, "")
         .trim();
+
 }
 
 
 function remember(key, value) {
 
-    key = cleanMemoryKey(key);
+    key =
+        cleanMemoryKey(key);
 
-    memory[key] = value;
+    memory[key] =
+        value;
 
-    lastTopic = key;
+    lastTopic =
+        key;
 
     saveMemory();
+
 }
 
 
@@ -200,6 +251,7 @@ function getMemory(key) {
     return memory[
         cleanMemoryKey(key)
     ];
+
 }
 
 
@@ -211,9 +263,11 @@ function randomResponse(responses) {
 
     return responses[
         Math.floor(
-            Math.random() * responses.length
+            Math.random() *
+            responses.length
         )
     ];
+
 }
 
 
@@ -224,9 +278,13 @@ function randomResponse(responses) {
 function updateThemeButton() {
 
     const button =
-        document.getElementById("themeButton");
+        document.getElementById(
+            "themeButton"
+        );
 
-    if (!button) return;
+    if (!button) {
+        return;
+    }
 
     if (
         document.body.classList.contains(
@@ -234,12 +292,16 @@ function updateThemeButton() {
         )
     ) {
 
-        button.textContent = "🌙 Dark";
+        button.textContent =
+            "🌙 Dark";
 
     } else {
 
-        button.textContent = "☀️ Light";
+        button.textContent =
+            "☀️ Light";
+
     }
+
 }
 
 
@@ -256,10 +318,13 @@ function toggleTheme() {
 
     localStorage.setItem(
         "liminalTheme",
-        isLight ? "light" : "dark"
+        isLight
+            ? "light"
+            : "dark"
     );
 
     updateThemeButton();
+
 }
 
 
@@ -281,9 +346,11 @@ function loadTheme() {
         document.body.classList.remove(
             "light-mode"
         );
+
     }
 
     updateThemeButton();
+
 }
 
 
@@ -294,6 +361,7 @@ function loadTheme() {
 function isSearchRequest(text) {
 
     const phrases = [
+
         "search for ",
         "search ",
         "look up ",
@@ -304,17 +372,21 @@ function isSearchRequest(text) {
         "search the web for ",
         "search the web ",
         "google "
+
     ];
 
     return phrases.some(
-        phrase => text.startsWith(phrase)
+        phrase =>
+            text.startsWith(phrase)
     );
+
 }
 
 
 function getSearchQuery(text) {
 
     const phrases = [
+
         "search for ",
         "search ",
         "look up ",
@@ -325,19 +397,29 @@ function getSearchQuery(text) {
         "search the web for ",
         "search the web ",
         "google "
+
     ];
 
-    for (const phrase of phrases) {
+    for (
+        const phrase of phrases
+    ) {
 
-        if (text.startsWith(phrase)) {
+        if (
+            text.startsWith(phrase)
+        ) {
 
             return text
-                .substring(phrase.length)
+                .substring(
+                    phrase.length
+                )
                 .trim();
+
         }
+
     }
 
     return text.trim();
+
 }
 
 
@@ -356,9 +438,13 @@ async function searchWeb(query) {
             await response.json();
 
         if (!response.ok) {
+
             throw new Error(
-                data.error || "Search failed"
+                data.message ||
+                data.error ||
+                "Search failed"
             );
+
         }
 
         return data;
@@ -371,13 +457,20 @@ async function searchWeb(query) {
         );
 
         return {
+
             success: false,
+
             available: false,
+
             results: [],
+
             message:
                 "The search service is currently unavailable."
+
         };
+
     }
+
 }
 
 
@@ -387,41 +480,73 @@ async function searchWeb(query) {
 
 function findMemoryKey(text) {
 
-    text = normalizeText(text);
+    text =
+        normalizeText(text);
 
     if (
-        text.includes("favorite color") ||
-        text.includes("what color do i like")
+        text.includes(
+            "favorite color"
+        ) ||
+        text.includes(
+            "what color do i like"
+        )
     ) {
+
         return "favorite color";
+
     }
 
     if (
-        text.includes("favorite game") ||
-        text.includes("what game do i like")
+        text.includes(
+            "favorite game"
+        ) ||
+        text.includes(
+            "what game do i like"
+        )
     ) {
+
         return "favorite game";
+
     }
 
     if (
-        text.includes("favorite food") ||
-        text.includes("what food do i like")
+        text.includes(
+            "favorite food"
+        ) ||
+        text.includes(
+            "what food do i like"
+        )
     ) {
+
         return "favorite food";
-    }
 
-    if (text.includes("my name")) {
-        return "name";
     }
 
     if (
-        text.includes("where do i live") ||
-        text.includes("my location")
+        text.includes(
+            "my name"
+        )
     ) {
+
+        return "name";
+
+    }
+
+    if (
+        text.includes(
+            "where do i live"
+        ) ||
+        text.includes(
+            "my location"
+        )
+    ) {
+
         return "location";
+
     }
 
     return null;
+
 }
 
 
@@ -432,6 +557,7 @@ function findMemoryKey(text) {
 function isCorrection(text) {
 
     const phrases = [
+
         "no",
         "no that's wrong",
         "no that is wrong",
@@ -442,13 +568,17 @@ function isCorrection(text) {
         "incorrect",
         "not correct",
         "actually"
+
     ];
 
     return phrases.some(
         phrase =>
             text === phrase ||
-            text.startsWith(phrase + " ")
+            text.startsWith(
+                phrase + " "
+            )
     );
+
 }
 
 
@@ -456,23 +586,45 @@ function handleCorrection(text) {
 
     let correctionText =
         text
-            .replace(/^no[, ]*/i, "")
-            .replace(/^actually[, ]*/i, "")
-            .replace(/^that's wrong[, ]*/i, "")
-            .replace(/^that is wrong[, ]*/i, "")
+            .replace(
+                /^no[, ]*/i,
+                ""
+            )
+            .replace(
+                /^actually[, ]*/i,
+                ""
+            )
+            .replace(
+                /^that's wrong[, ]*/i,
+                ""
+            )
+            .replace(
+                /^that is wrong[, ]*/i,
+                ""
+            )
             .trim();
 
     correctionText =
-        normalizeText(correctionText);
+        normalizeText(
+            correctionText
+        );
 
-    // "my favorite color is blue"
+
+    // MY ... IS ...
+
     if (
-        correctionText.startsWith("my ") &&
-        correctionText.includes(" is ")
+        correctionText.startsWith(
+            "my "
+        ) &&
+        correctionText.includes(
+            " is "
+        )
     ) {
 
         const parts =
-            correctionText.split(" is ");
+            correctionText.split(
+                " is "
+            );
 
         const key =
             cleanMemoryKey(
@@ -480,38 +632,67 @@ function handleCorrection(text) {
             );
 
         const value =
-            parts.slice(1)
+            parts
+                .slice(1)
                 .join(" is ")
                 .trim();
 
-        if (key && value) {
+        if (
+            key &&
+            value
+        ) {
 
             const oldValue =
-                memory[key] || null;
+                memory[key] ||
+                null;
 
-            remember(key, value);
+            remember(
+                key,
+                value
+            );
 
             corrections.push({
-                type: "memory_update",
+
+                type:
+                    "memory_update",
+
                 key,
+
                 oldValue,
-                newValue: value,
-                time: new Date().toISOString()
+
+                newValue:
+                    value,
+
+                time:
+                    new Date()
+                        .toISOString()
+
             });
 
             saveCorrections();
 
-            setConfidence("high");
+            setConfidence(
+                "high"
+            );
 
             return oldValue
+
                 ? `You're right! I've updated my memory. Your ${key} is now ${value}.`
+
                 : `Got it! I'll remember that your ${key} is ${value}.`;
+
         }
+
     }
+
+
+    // CONTEXT CORRECTION
 
     if (
         lastTopic &&
-        correctionText.startsWith("it is ")
+        correctionText.startsWith(
+            "it is "
+        )
     ) {
 
         const value =
@@ -522,7 +703,8 @@ function handleCorrection(text) {
         if (value) {
 
             const oldValue =
-                memory[lastTopic] || null;
+                memory[lastTopic] ||
+                null;
 
             remember(
                 lastTopic,
@@ -530,28 +712,49 @@ function handleCorrection(text) {
             );
 
             corrections.push({
-                type: "context_update",
-                key: lastTopic,
+
+                type:
+                    "context_update",
+
+                key:
+                    lastTopic,
+
                 oldValue,
-                newValue: value,
-                time: new Date().toISOString()
+
+                newValue:
+                    value,
+
+                time:
+                    new Date()
+                        .toISOString()
+
             });
 
             saveCorrections();
 
             return (
-                `You're right! I've corrected my memory. ` +
-                `Your ${lastTopic} is now ${value}.`
+                "You're right! I've corrected my memory. " +
+                "Your " +
+                lastTopic +
+                " is now " +
+                value +
+                "."
             );
+
         }
+
     }
 
-    setConfidence("low");
+
+    setConfidence(
+        "low"
+    );
 
     return (
         "Got it. I know my previous answer was incorrect. " +
         "Tell me the correct information and I'll learn it."
     );
+
 }
 
 
@@ -562,56 +765,102 @@ function handleCorrection(text) {
 function think(originalText) {
 
     const text =
-        normalizeText(originalText);
+        normalizeText(
+            originalText
+        );
 
-    setConfidence("high");
+    setConfidence(
+        "high"
+    );
+
 
     // CORRECTION
-    if (isCorrection(text)) {
-        return handleCorrection(text);
-    }
 
-    // TIME
     if (
-        text.includes("what time is it") ||
-        text === "time" ||
-        text.includes("current time")
+        isCorrection(text)
     ) {
 
-        const now = new Date();
+        return handleCorrection(
+            text
+        );
+
+    }
+
+
+    // TIME
+
+    if (
+        text.includes(
+            "what time is it"
+        ) ||
+        text === "time" ||
+        text.includes(
+            "current time"
+        )
+    ) {
+
+        const now =
+            new Date();
 
         return (
             "The current time is " +
-            now.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit"
-            }) +
+            now.toLocaleTimeString(
+                [],
+                {
+                    hour:
+                        "2-digit",
+
+                    minute:
+                        "2-digit"
+                }
+            ) +
             "."
         );
+
     }
 
+
     // DATE
+
     if (
-        text.includes("what is the date") ||
+        text.includes(
+            "what is the date"
+        ) ||
         text === "date" ||
-        text.includes("what day is it")
+        text.includes(
+            "what day is it"
+        )
     ) {
 
-        const now = new Date();
+        const now =
+            new Date();
 
         return (
             "Today is " +
-            now.toLocaleDateString([], {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric"
-            }) +
+            now.toLocaleDateString(
+                [],
+                {
+                    weekday:
+                        "long",
+
+                    year:
+                        "numeric",
+
+                    month:
+                        "long",
+
+                    day:
+                        "numeric"
+                }
+            ) +
             "."
         );
+
     }
 
+
     // GREETINGS
+
     if (
         [
             "hello",
@@ -623,113 +872,190 @@ function think(originalText) {
     ) {
 
         return randomResponse([
+
             "Hello!",
             "Hey!",
             "Hey there!",
             "Hello there!",
             "Hi! 👋"
+
         ]);
+
     }
 
+
     // HOW ARE YOU
+
     if (
-        text.includes("how are you") ||
-        text.includes("how is it going")
+        text.includes(
+            "how are you"
+        ) ||
+        text.includes(
+            "how is it going"
+        )
     ) {
 
         return randomResponse([
+
             "I'm doing great!",
             "I'm doing pretty well!",
             "I'm good! Thanks for asking.",
             "I'm running perfectly!",
             "Doing great! 🤖"
+
         ]);
+
     }
+
 
     // NAME
+
     if (
-        text.includes("what is your name") ||
-        text.includes("who are you")
+        text.includes(
+            "what is your name"
+        ) ||
+        text.includes(
+            "who are you"
+        )
     ) {
 
-        return "I'm Liminal AI 0.75.";
+        return (
+            "I'm Liminal AI 0.75."
+        );
+
     }
 
+
     // CREATOR
+
     if (
-        text.includes("who made you") ||
-        text.includes("who created you") ||
-        text.includes("who built you")
+        text.includes(
+            "who made you"
+        ) ||
+        text.includes(
+            "who created you"
+        ) ||
+        text.includes(
+            "who built you"
+        )
     ) {
 
         return randomResponse([
+
             "I was created by Jacobo.",
             "Jacobo created me.",
             "My creator is Jacobo.",
             "I was made by Jacobo."
+
         ]);
+
     }
 
+
     // JOKES
+
     if (
-        text.includes("tell me a joke") ||
-        text.includes("make me laugh") ||
+        text.includes(
+            "tell me a joke"
+        ) ||
+        text.includes(
+            "make me laugh"
+        ) ||
         text === "joke"
     ) {
 
         return randomResponse([
+
             "Why did the computer go to the doctor? Because it had a virus.",
+
             "Why was the computer cold? It left its Windows open.",
+
             "What do computers eat? Microchips!",
+
             "Why did the programmer quit his job? He didn't get arrays."
+
         ]);
+
     }
 
+
     // REMEMBER THAT
-    if (text.startsWith("remember that ")) {
+
+    if (
+        text.startsWith(
+            "remember that "
+        )
+    ) {
 
         const information =
-            text.substring(14).trim();
+            text.substring(14)
+                .trim();
 
         const parts =
-            information.split(" is ");
+            information.split(
+                " is "
+            );
 
-        if (parts.length >= 2) {
+        if (
+            parts.length >= 2
+        ) {
 
             const key =
-                cleanMemoryKey(parts[0]);
+                cleanMemoryKey(
+                    parts[0]
+                );
 
             const value =
-                parts.slice(1)
+                parts
+                    .slice(1)
                     .join(" is ")
                     .trim();
 
-            if (key && value) {
+            if (
+                key &&
+                value
+            ) {
 
                 const oldValue =
                     memory[key];
 
-                remember(key, value);
+                remember(
+                    key,
+                    value
+                );
 
                 return oldValue
+
                     ? `Got it. I've updated my memory. Your ${key} is now ${value}.`
+
                     : `I'll remember that your ${key} is ${value}.`;
+
             }
+
         }
 
         return (
             "Try saying: remember that my favorite color is yellow."
         );
+
     }
 
+
     // NATURAL MEMORY
+
     if (
-        text.startsWith("my ") &&
-        text.includes(" is ")
+        text.startsWith(
+            "my "
+        ) &&
+        text.includes(
+            " is "
+        )
     ) {
 
         const parts =
-            text.split(" is ");
+            text.split(
+                " is "
+            );
 
         const key =
             cleanMemoryKey(
@@ -737,61 +1063,100 @@ function think(originalText) {
             );
 
         const value =
-            parts.slice(1)
+            parts
+                .slice(1)
                 .join(" is ")
                 .trim();
 
-        if (key && value) {
+        if (
+            key &&
+            value
+        ) {
 
             const oldValue =
                 memory[key];
 
-            remember(key, value);
+            remember(
+                key,
+                value
+            );
 
             return oldValue
+
                 ? `Got it. I've updated my memory. Your ${key} is now ${value}.`
+
                 : `Got it. I'll remember that your ${key} is ${value}.`;
+
         }
+
     }
 
+
     // I AM
-    if (text.startsWith("i am ")) {
+
+    if (
+        text.startsWith(
+            "i am "
+        )
+    ) {
 
         const value =
-            text.substring(5).trim();
+            text.substring(5)
+                .trim();
 
-        remember("identity", value);
+        remember(
+            "identity",
+            value
+        );
 
         return (
             "Got it. I'll remember that you are " +
             value +
             "."
         );
+
     }
 
+
     // I LIVE IN
-    if (text.startsWith("i live in ")) {
+
+    if (
+        text.startsWith(
+            "i live in "
+        )
+    ) {
 
         const value =
-            text.substring(10).trim();
+            text.substring(10)
+                .trim();
 
-        remember("location", value);
+        remember(
+            "location",
+            value
+        );
 
         return (
             "Got it. I'll remember that you live in " +
             value +
             "."
         );
+
     }
 
+
     // MEMORY QUESTION
+
     const possibleKey =
         findMemoryKey(text);
 
-    if (possibleKey) {
+    if (
+        possibleKey
+    ) {
 
         const value =
-            getMemory(possibleKey);
+            getMemory(
+                possibleKey
+            );
 
         if (value) {
 
@@ -805,6 +1170,7 @@ function think(originalText) {
                 value +
                 "."
             );
+
         }
 
         return (
@@ -812,24 +1178,37 @@ function think(originalText) {
             possibleKey +
             " yet."
         );
+
     }
 
+
     // WHAT IS MY
+
     if (
-        text.startsWith("what is my ") ||
-        text.startsWith("tell me my ")
+        text.startsWith(
+            "what is my "
+        ) ||
+        text.startsWith(
+            "tell me my "
+        )
     ) {
 
         const key =
-            text.startsWith("what is my ")
+            text.startsWith(
+                "what is my "
+            )
                 ? text.substring(11)
                 : text.substring(11);
 
         const cleanKey =
-            cleanMemoryKey(key);
+            cleanMemoryKey(
+                key
+            );
 
         const value =
-            getMemory(cleanKey);
+            getMemory(
+                cleanKey
+            );
 
         if (value) {
 
@@ -843,6 +1222,7 @@ function think(originalText) {
                 value +
                 "."
             );
+
         }
 
         return (
@@ -850,26 +1230,40 @@ function think(originalText) {
             cleanKey +
             " yet."
         );
+
     }
 
+
     // SHOW MEMORY
+
     if (
-        text === "what do you remember" ||
-        text === "show my memories" ||
-        text === "what do you know about me"
+        text ===
+            "what do you remember" ||
+        text ===
+            "show my memories" ||
+        text ===
+            "what do you know about me"
     ) {
 
         const keys =
-            Object.keys(memory);
+            Object.keys(
+                memory
+            );
 
         if (!keys.length) {
-            return "I don't remember anything yet.";
+
+            return (
+                "I don't remember anything yet."
+            );
+
         }
 
         let response =
             "Here's what I remember:\n\n";
 
-        for (const key of keys) {
+        for (
+            const key of keys
+        ) {
 
             response +=
                 "• " +
@@ -877,20 +1271,33 @@ function think(originalText) {
                 " = " +
                 memory[key] +
                 "\n";
+
         }
 
         return response;
+
     }
 
+
     // SHOW CORRECTIONS
+
     if (
-        text === "show corrections" ||
-        text === "what have you learned" ||
-        text === "show what you learned"
+        text ===
+            "show corrections" ||
+        text ===
+            "what have you learned" ||
+        text ===
+            "show what you learned"
     ) {
 
-        if (!corrections.length) {
-            return "I haven't learned any corrections yet.";
+        if (
+            !corrections.length
+        ) {
+
+            return (
+                "I haven't learned any corrections yet."
+            );
+
         }
 
         let response =
@@ -922,26 +1329,39 @@ function think(originalText) {
                         "• Correction " +
                         (index + 1) +
                         "\n";
+
                 }
+
             }
         );
 
         return response;
+
     }
 
+
     // FORGET
+
     if (
-        text.startsWith("forget my ") ||
-        text.startsWith("forget ")
+        text.startsWith(
+            "forget my "
+        ) ||
+        text.startsWith(
+            "forget "
+        )
     ) {
 
         let key =
-            text.startsWith("forget my ")
+            text.startsWith(
+                "forget my "
+            )
                 ? text.substring(10)
                 : text.substring(7);
 
         key =
-            cleanMemoryKey(key);
+            cleanMemoryKey(
+                key
+            );
 
         if (
             Object.prototype.hasOwnProperty.call(
@@ -959,6 +1379,7 @@ function think(originalText) {
                 key +
                 "."
             );
+
         }
 
         return (
@@ -966,9 +1387,12 @@ function think(originalText) {
             key +
             "."
         );
+
     }
 
+
     // CONTEXT
+
     if (
         text === "what is it" ||
         text === "what is that" ||
@@ -976,10 +1400,14 @@ function think(originalText) {
         text === "tell me about it"
     ) {
 
-        if (lastTopic) {
+        if (
+            lastTopic
+        ) {
 
             const value =
-                getMemory(lastTopic);
+                getMemory(
+                    lastTopic
+                );
 
             if (value) {
 
@@ -990,23 +1418,32 @@ function think(originalText) {
                     value +
                     "."
                 );
+
             }
+
         }
 
         return (
             'I\'m not sure what "it" refers to yet.'
         );
+
     }
 
+
     // FOLLOW-UP
+
     if (
         text === "why" ||
         text === "how come"
     ) {
 
-        if (lastTopic) {
+        if (
+            lastTopic
+        ) {
 
-            setConfidence("medium");
+            setConfidence(
+                "medium"
+            );
 
             return (
                 "Because that's the information I currently " +
@@ -1014,18 +1451,26 @@ function think(originalText) {
                 lastTopic +
                 "."
             );
+
         }
 
-        setConfidence("low");
+        setConfidence(
+            "low"
+        );
 
         return (
             "I'm not sure what you're referring to."
         );
+
     }
 
+
     // MATH
+
     if (
-        /^[0-9+\-*/().\s]+$/.test(text)
+        /^[0-9+\-*/().\s]+$/.test(
+            text
+        )
     ) {
 
         try {
@@ -1038,8 +1483,11 @@ function think(originalText) {
                 )();
 
             if (
-                typeof answer === "number" &&
-                Number.isFinite(answer)
+                typeof answer ===
+                    "number" &&
+                Number.isFinite(
+                    answer
+                )
             ) {
 
                 return (
@@ -1047,19 +1495,28 @@ function think(originalText) {
                     answer +
                     "."
                 );
+
             }
 
         } catch (error) {
+
             // Fall through.
+
         }
+
     }
 
+
     // UNKNOWN
-    setConfidence("low");
+
+    setConfidence(
+        "low"
+    );
 
     return (
         "I'm not sure what you mean. Could you rephrase that?"
     );
+
 }
 
 
@@ -1067,12 +1524,18 @@ function think(originalText) {
 // SAFE DISPLAY
 // ==========================================
 
-function displayAIResponse(element, text) {
+function displayAIResponse(
+    element,
+    text
+) {
 
-    if (!element) return;
+    if (!element) {
+        return;
+    }
 
     element.textContent =
         String(text);
+
 }
 
 
@@ -1083,13 +1546,22 @@ function displayAIResponse(element, text) {
 async function sendMessage() {
 
     const input =
-        document.getElementById("userInput");
+        document.getElementById(
+            "userInput"
+        );
 
     const messages =
-        document.getElementById("messages");
+        document.getElementById(
+            "messages"
+        );
 
-    if (!input || !messages) {
+    if (
+        !input ||
+        !messages
+    ) {
+
         return;
+
     }
 
     const originalText =
@@ -1100,39 +1572,64 @@ async function sendMessage() {
     }
 
     const normalized =
-        normalizeText(originalText);
+        normalizeText(
+            originalText
+        );
 
 
     // USER MESSAGE
+
     const userMessage =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
-    userMessage.className = "user";
-    userMessage.textContent = originalText;
+    userMessage.className =
+        "user";
 
-    messages.appendChild(userMessage);
+    userMessage.textContent =
+        originalText;
+
+    messages.appendChild(
+        userMessage
+    );
 
     input.value = "";
 
 
     // AI MESSAGE
+
     const aiMessage =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
-    aiMessage.className = "ai";
-    aiMessage.textContent = "Thinking... 🤔";
+    aiMessage.className =
+        "ai";
 
-    messages.appendChild(aiMessage);
+    aiMessage.textContent =
+        "Thinking... 🤔";
+
+    messages.appendChild(
+        aiMessage
+    );
 
     messages.scrollTop =
         messages.scrollHeight;
 
 
     // SEARCH
-    if (isSearchRequest(normalized)) {
+
+    if (
+        isSearchRequest(
+            normalized
+        )
+    ) {
 
         const query =
-            getSearchQuery(normalized);
+            getSearchQuery(
+                normalized
+            );
 
         if (query) {
 
@@ -1140,7 +1637,9 @@ async function sendMessage() {
                 "Searching... 🌐";
 
             const result =
-                await searchWeb(query);
+                await searchWeb(
+                    query
+                );
 
             if (
                 result.success &&
@@ -1170,21 +1669,29 @@ async function sendMessage() {
                                 ) +
                                 "\n";
 
-                            if (item.snippet) {
+                            if (
+                                item.snippet
+                            ) {
 
                                 response +=
                                     item.snippet +
                                     "\n";
+
                             }
 
-                            if (item.url) {
+                            if (
+                                item.url
+                            ) {
 
                                 response +=
                                     item.url +
                                     "\n";
+
                             }
 
-                            response += "\n";
+                            response +=
+                                "\n";
+
                         }
                     );
 
@@ -1192,6 +1699,7 @@ async function sendMessage() {
 
                     response +=
                         "No results were found.";
+
                 }
 
                 displayAIResponse(
@@ -1212,14 +1720,19 @@ async function sendMessage() {
                 lastResponse =
                     aiMessage.textContent;
 
-                setConfidence("low");
+                setConfidence(
+                    "low"
+                );
+
             }
 
             messages.scrollTop =
                 messages.scrollHeight;
 
             return;
+
         }
+
     }
 
 
@@ -1228,7 +1741,9 @@ async function sendMessage() {
     // ======================================
 
     const localReply =
-        think(originalText);
+        think(
+            originalText
+        );
 
     displayAIResponse(
         aiMessage,
@@ -1243,18 +1758,15 @@ async function sendMessage() {
 
 
     // ======================================
-    // IMPORTANT:
-    // DO NOT LET BACKEND REPLACE LIMINAL'S
-    // LOCAL MEMORY / PERSONALITY RESPONSE.
-    //
-    // The backend remains available for
-    // search and future features.
+    // BACKEND DOES NOT REPLACE
+    // LIMINAL'S LOCAL BRAIN
     // ======================================
 
     console.log(
         "Liminal confidence:",
         lastConfidence
     );
+
 }
 
 
@@ -1265,7 +1777,9 @@ async function sendMessage() {
 function clearChat() {
 
     const messages =
-        document.getElementById("messages");
+        document.getElementById(
+            "messages"
+        );
 
     if (!messages) {
         return;
@@ -1274,19 +1788,25 @@ function clearChat() {
     messages.innerHTML = "";
 
     const welcome =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
-    welcome.className = "ai";
+    welcome.className =
+        "ai";
 
     welcome.textContent =
         "Hello! I'm Liminal AI 0.75.";
 
-    messages.appendChild(welcome);
+    messages.appendChild(
+        welcome
+    );
 
     lastTopic = null;
     lastResponse = "";
     lastQuestion = "";
     waitingForClarification = false;
+
 }
 
 
@@ -1300,14 +1820,17 @@ async function testBackend() {
 
         const response =
             await fetch(
-                BACKEND_URL + "/api/test"
+                BACKEND_URL +
+                "/api/test"
             );
 
         if (!response.ok) {
+
             throw new Error(
                 "Backend returned " +
                 response.status
             );
+
         }
 
         const data =
@@ -1327,12 +1850,25 @@ async function testBackend() {
         );
 
         return false;
+
     }
+
 }
 
 
 // ==========================================
 // BACKEND INFO
+// FIXED:
+//
+// The old version requested:
+//
+// /api/info
+//
+// But server.js does not have /api/info.
+//
+// The backend home endpoint is:
+//
+// /
 // ==========================================
 
 async function getBackendInfo() {
@@ -1341,13 +1877,16 @@ async function getBackendInfo() {
 
         const response =
             await fetch(
-                BACKEND_URL + "/api/info"
+                BACKEND_URL +
+                "/"
             );
 
         if (!response.ok) {
+
             throw new Error(
                 "Backend info unavailable"
             );
+
         }
 
         const data =
@@ -1367,7 +1906,9 @@ async function getBackendInfo() {
         );
 
         return null;
+
     }
+
 }
 
 
@@ -1398,15 +1939,25 @@ document.addEventListener(
                         event.preventDefault();
 
                         sendMessage();
+
                     }
+
                 }
             );
+
         }
 
         loadTheme();
 
-        // These do NOT modify the UI.
+
+        // These run in the background.
+        // They DO NOT prevent Liminal
+        // from working if the backend
+        // is unavailable.
+
         testBackend();
+
         getBackendInfo();
+
     }
 );
