@@ -50,7 +50,7 @@ app.get("/api/test", (req, res) => {
 
 
 // ==========================================
-// DUCKDUCKGO SEARCH
+// DUCKDUCKGO JSON SEARCH
 // ==========================================
 
 function duckDuckGoSearch(query) {
@@ -58,22 +58,18 @@ function duckDuckGoSearch(query) {
     return new Promise((resolve, reject) => {
 
         const url =
-            "https://html.duckduckgo.com/html/?q=" +
-            encodeURIComponent(query);
+            "https://api.duckduckgo.com/?q=" +
+            encodeURIComponent(query) +
+            "&format=json" +
+            "&no_html=1" +
+            "&skip_disambig=1";
 
 
         const request = https.get(
             url,
             {
                 headers: {
-                    "User-Agent":
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-
-                    "Accept":
-                        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-
-                    "Accept-Language":
-                        "en-US,en;q=0.9"
+                    "User-Agent": "LiminalAI/0.75"
                 }
             },
 
@@ -91,8 +87,10 @@ function duckDuckGoSearch(query) {
 
                 response.on("end", () => {
 
-                    if (response.statusCode < 200 ||
-                        response.statusCode >= 300) {
+                    if (
+                        response.statusCode < 200 ||
+                        response.statusCode >= 300
+                    ) {
 
                         reject(
                             new Error(
@@ -105,7 +103,22 @@ function duckDuckGoSearch(query) {
                     }
 
 
-                    resolve(data);
+                    try {
+
+                        const json =
+                            JSON.parse(data);
+
+                        resolve(json);
+
+                    } catch (error) {
+
+                        reject(
+                            new Error(
+                                "Invalid DuckDuckGo response."
+                            )
+                        );
+
+                    }
 
                 });
 
@@ -165,14 +178,14 @@ app.get("/api/search", async (req, res) => {
 
 
     console.log(
-        "DuckDuckGo search:",
+        "Liminal web search:",
         query
     );
 
 
     try {
 
-        const html =
+        const data =
             await duckDuckGoSearch(query);
 
 
@@ -180,130 +193,25 @@ app.get("/api/search", async (req, res) => {
 
 
         // ==================================
-        // FIND RESULT BLOCKS
+        // MAIN RESULT
         // ==================================
 
-        const resultRegex =
-            /<div[^>]+class="[^"]*result[^"]*"[\s\S]*?<\/div>\s*<\/div>/gi;
-
-
-        const blocks =
-            html.match(resultRegex) || [];
-
-
-        // ==================================
-        // PARSE RESULTS
-        // ==================================
-
-        for (const block of blocks) {
-
-            if (results.length >= 10) {
-                break;
-            }
-
-
-            const linkMatch =
-                block.match(
-                    /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i
-                );
-
-
-            if (!linkMatch) {
-                continue;
-            }
-
-
-            let url =
-                linkMatch[1];
-
-
-            let title =
-                linkMatch[2];
-
-
-            // ==================================
-            // CLEAN TITLE
-            // ==================================
-
-            title = title
-                .replace(/<[^>]+>/g, "")
-                .replace(/&amp;/g, "&")
-                .replace(/&quot;/g, '"')
-                .replace(/&#39;/g, "'")
-                .trim();
-
-
-            // ==================================
-            // GET REAL URL
-            // ==================================
-
-            try {
-
-                if (url.includes("uddg=")) {
-
-                    const parsed =
-                        new URL(
-                            url,
-                            "https://html.duckduckgo.com"
-                        );
-
-
-                    const realURL =
-                        parsed.searchParams.get("uddg");
-
-
-                    if (realURL) {
-
-                        url =
-                            decodeURIComponent(realURL);
-
-                    }
-
-                }
-
-            } catch (error) {
-
-                console.log(
-                    "URL parsing error:",
-                    error.message
-                );
-
-            }
-
-
-            // ==================================
-            // SNIPPET
-            // ==================================
-
-            let snippet = "";
-
-
-            const snippetMatch =
-                block.match(
-                    /class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/(?:a|div)>/i
-                );
-
-
-            if (snippetMatch) {
-
-                snippet =
-                    snippetMatch[1]
-                        .replace(/<[^>]+>/g, "")
-                        .replace(/&amp;/g, "&")
-                        .replace(/&quot;/g, '"')
-                        .replace(/&#39;/g, "'")
-                        .trim();
-
-            }
-
+        if (
+            data.AbstractText &&
+            data.AbstractURL
+        ) {
 
             results.push({
 
-                title: title,
+                title:
+                    data.Heading ||
+                    query,
 
-                url: url,
+                url:
+                    data.AbstractURL,
 
-                snippet: snippet
+                snippet:
+                    data.AbstractText
 
             });
 
@@ -311,11 +219,67 @@ app.get("/api/search", async (req, res) => {
 
 
         // ==================================
+        // RELATED TOPICS
+        // ==================================
+
+        function addTopics(topics) {
+
+            if (!Array.isArray(topics)) {
+                return;
+            }
+
+
+            for (const topic of topics) {
+
+                if (results.length >= 10) {
+                    break;
+                }
+
+
+                // Some topics contain nested Topics
+                if (topic.Topics) {
+
+                    addTopics(topic.Topics);
+
+                    continue;
+
+                }
+
+
+                if (
+                    topic.Text &&
+                    topic.FirstURL
+                ) {
+
+                    results.push({
+
+                        title:
+                            topic.Text,
+
+                        url:
+                            topic.FirstURL,
+
+                        snippet:
+                            topic.Text
+
+                    });
+
+                }
+
+            }
+
+        }
+
+
+        addTopics(data.RelatedTopics);
+
+
+        // ==================================
         // RESPONSE
         // ==================================
 
         console.log(
-            "DuckDuckGo results:",
+            "Search results:",
             results.length
         );
 
@@ -336,7 +300,7 @@ app.get("/api/search", async (req, res) => {
     } catch (error) {
 
         console.error(
-            "DuckDuckGo search failed:",
+            "Web search failed:",
             error.message
         );
 
