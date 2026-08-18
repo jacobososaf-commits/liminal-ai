@@ -63,10 +63,12 @@ window.Aurora = (function () {
     let mood = "calm";
 
     const MOOD_WORDS = {
-        happy: ["happy", "great", "awesome", "excited", "good", "glad", "love"],
+        happy: ["happy", "great", "awesome", "good", "glad", "love"],
         sad: ["sad", "down", "upset", "tired", "depressed", "bad", "lonely"],
         angry: ["angry", "mad", "furious", "annoyed", "frustrated", "hate"],
-        anxious: ["worried", "nervous", "anxious", "scared", "stressed"]
+        anxious: ["worried", "nervous", "anxious", "scared", "stressed"],
+        excited: ["excited", "thrilled", "pumped", "stoked"],
+        confused: ["confused", "puzzled", "unsure", "lost"]
     };
 
     function updateMood(text) {
@@ -101,6 +103,12 @@ window.Aurora = (function () {
 
             case "anxious":
                 return "That sounds stressful. Let's take it one step at a time. ";
+
+            case "excited":
+                return "You sound genuinely excited about this. ";
+
+            case "confused":
+                return "Sounds like something's unclear. Let's untangle it. ";
 
             default:
                 return "";
@@ -302,6 +310,41 @@ window.Aurora = (function () {
 
 
     // ==========================================
+    // SHARED RESPONSE SETS
+    //
+    // Used by both the exact-match branches below
+    // and the fuzzy fallback further down, so the
+    // two can't drift out of sync. Counts kept in
+    // the same rough range as Liminal's own lists
+    // (not bigger) — variety, not a bigger brain.
+    // ==========================================
+
+    const GREETINGS = [
+        "Hi — good to see you.",
+        "Hey there. What's on your mind?",
+        "Hello! Ready when you are.",
+        "Hey! How's your day going?",
+        "Hi there.",
+        "Hey — what's up?"
+    ];
+
+    const JOKES = [
+        "Why did the sun go to therapy? Too many bright ideas.",
+        "I told the horizon a joke. It just kept rising to the occasion.",
+        "Mornings are just nights that peer-pressured the sky into color.",
+        "Why is dawn always calm? It's still half-asleep.",
+        "I asked the sky for advice. It just kept clouding the issue."
+    ];
+
+    const CREATOR_RESPONSES = [
+        "Jacobo built me, same as Liminal — just a different mind.",
+        "I come from Jacobo, though I don't think quite like Liminal does.",
+        "Jacobo's the one behind me.",
+        "Same creator as Liminal: Jacobo."
+    ];
+
+
+    // ==========================================
     // RANDOM RESPONSE
     // ==========================================
 
@@ -410,7 +453,7 @@ window.Aurora = (function () {
         // before the usual greeting instead of ignoring it.
         if (["hello", "hi", "hey", "hello there", "hey there"].includes(text)) {
 
-            if (mood !== "calm" && mood !== "happy") {
+            if (mood !== "calm" && mood !== "happy" && mood !== "excited") {
 
                 return (
                     moodAcknowledgement() +
@@ -418,12 +461,7 @@ window.Aurora = (function () {
                 );
             }
 
-            return randomResponse([
-                "Hi — good to see you.",
-                "Hey there. What's on your mind?",
-                "Hello! Ready when you are.",
-                "Hey! How's your day going?"
-            ]);
+            return randomResponse(GREETINGS);
         }
 
         // GOOD MORNING / GOOD NIGHT
@@ -452,7 +490,8 @@ window.Aurora = (function () {
             return randomResponse([
                 "Take care.",
                 "See you around.",
-                "Bye for now."
+                "Bye for now.",
+                "Catch you later."
             ]);
         }
 
@@ -525,11 +564,7 @@ window.Aurora = (function () {
             text.includes("who built you")
         ) {
 
-            return randomResponse([
-                "Jacobo built me, same as Liminal — just a different mind.",
-                "I come from Jacobo, though I don't think quite like Liminal does.",
-                "Jacobo's the one behind me."
-            ]);
+            return randomResponse(CREATOR_RESPONSES);
         }
 
         // FEELINGS CHECK-IN — Aurora-only category
@@ -578,11 +613,7 @@ window.Aurora = (function () {
         // just cracking a joke.
         if (text.includes("tell me a joke") || text.includes("make me laugh") || text === "joke") {
 
-            const joke = randomResponse([
-                "Why did the sun go to therapy? Too many bright ideas.",
-                "I told the horizon a joke. It just kept rising to the occasion.",
-                "Mornings are just nights that peer-pressured the sky into color."
-            ]);
+            const joke = randomResponse(JOKES);
 
             if (mood === "sad" || mood === "anxious") {
 
@@ -789,11 +820,7 @@ window.Aurora = (function () {
 
         if (fuzzyMatchesAny(text, ["hello", "hi", "hey"])) {
 
-            return fuzzyReply(randomResponse([
-                "Hi — good to see you.",
-                "Hey there. What's on your mind?",
-                "Hello! Ready when you are."
-            ]));
+            return fuzzyReply(randomResponse(GREETINGS));
         }
 
         if (fuzzyMatchesAny(text, ["how are you"])) {
@@ -808,19 +835,12 @@ window.Aurora = (function () {
 
         if (fuzzyMatchesAny(text, ["who made you", "who created you", "who built you"])) {
 
-            return fuzzyReply(randomResponse([
-                "Jacobo built me, same as Liminal — just a different mind.",
-                "Jacobo's the one behind me."
-            ]));
+            return fuzzyReply(randomResponse(CREATOR_RESPONSES));
         }
 
         if (fuzzyMatchesAny(text, ["tell me a joke", "make me laugh", "joke"])) {
 
-            return fuzzyReply(randomResponse([
-                "Why did the sun go to therapy? Too many bright ideas.",
-                "I told the horizon a joke. It just kept rising to the occasion.",
-                "Mornings are just nights that peer-pressured the sky into color."
-            ]));
+            return fuzzyReply(randomResponse(JOKES));
         }
 
         if (fuzzyMatchesAny(text, ["i cannot do this", "i give up", "this is too hard"])) {
