@@ -380,12 +380,29 @@
 
             try {
 
+                // ==================================
+                // FIX:
+                // Use Liminal's public responder
+                // instead of calling think() directly.
+                //
+                // This allows:
+                // - Local Liminal thinking
+                // - Memory
+                // - Corrections
+                // - Math
+                // - Web search
+                // ==================================
+
                 if (
-                    typeof think === "function"
+                    window.Liminal &&
+                    typeof window.Liminal.respond ===
+                    "function"
                 ) {
 
                     text.textContent =
-                        think(raw);
+                        await window.Liminal.respond(
+                            raw
+                        );
 
                 } else {
 

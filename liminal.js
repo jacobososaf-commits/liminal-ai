@@ -1913,6 +1913,183 @@ async function getBackendInfo() {
 
 
 // ==========================================
+// PUBLIC LIMINAL RESPONDER
+//
+// This is used by index.html.
+//
+// It fixes the problem where index.html
+// was calling think() directly and therefore
+// completely bypassing the web-search system.
+//
+// Liminal now has:
+//
+// local brain
+// memory
+// corrections
+// math
+// web search
+//
+// all through one responder.
+// ==========================================
+
+async function liminalRespond(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    // ======================================
+    // WEB SEARCH
+    // ======================================
+
+    if (
+        isSearchRequest(normalized)
+    ) {
+
+        const query =
+            getSearchQuery(normalized);
+
+        if (query) {
+
+            const result =
+                await searchWeb(query);
+
+
+            if (
+                result.success &&
+                result.available
+            ) {
+
+                let response =
+                    "Search results for: " +
+                    query +
+                    "\n\n";
+
+
+                if (
+                    Array.isArray(
+                        result.results
+                    ) &&
+                    result.results.length
+                ) {
+
+                    result.results.forEach(
+                        (item, index) => {
+
+                            response +=
+                                `${index + 1}. ` +
+                                (
+                                    item.title ||
+                                    "Untitled result"
+                                ) +
+                                "\n";
+
+
+                            if (
+                                item.snippet
+                            ) {
+
+                                response +=
+                                    item.snippet +
+                                    "\n";
+
+                            }
+
+
+                            if (
+                                item.url
+                            ) {
+
+                                response +=
+                                    item.url +
+                                    "\n";
+
+                            }
+
+
+                            response +=
+                                "\n";
+
+                        }
+                    );
+
+                } else {
+
+                    response +=
+                        "No results were found.";
+
+                }
+
+
+                lastResponse =
+                    response;
+
+                setConfidence(
+                    "high"
+                );
+
+                return response;
+
+            }
+
+
+            lastResponse =
+                "The search service is currently unavailable. 🌐";
+
+            setConfidence(
+                "low"
+            );
+
+            return lastResponse;
+
+        }
+
+    }
+
+
+    // ======================================
+    // NORMAL LIMINAL
+    // ======================================
+
+    const response =
+        think(text);
+
+    lastResponse =
+        response;
+
+    return response;
+
+}
+
+
+// ==========================================
+// PUBLIC LIMINAL API
+//
+// index.html uses:
+//
+// window.Liminal.respond()
+//
+// Aurora remains completely separate.
+// ==========================================
+
+window.Liminal = {
+
+    respond:
+        liminalRespond,
+
+    think:
+        think,
+
+    search:
+        searchWeb,
+
+    clear:
+        clearChat
+
+};
+
+
+// ==========================================
 // INITIALIZATION
 // ==========================================
 
