@@ -234,6 +234,13 @@ window.Aurora = (function () {
         // TYPO_REPLACEMENTS dictionary instead.
         if (word.length <= 2 || target.length <= 2) return false;
 
+        // Typos rarely change the first letter, but unrelated
+        // words often share a similar shape (e.g. "bored" vs
+        // "tired" are edit-distance 2 apart but mean nothing
+        // alike). Requiring the first letter to match filters
+        // these out while still catching real typos.
+        if (word.charAt(0) !== target.charAt(0)) return false;
+
         const distance = levenshtein(word, target);
         const maxDistance = target.length <= 4 ? 1 : 2;
 
@@ -398,8 +405,18 @@ window.Aurora = (function () {
         setClarity("clear");
         updateMood(text);
 
-        // GREETINGS
+        // GREETINGS — mood-aware: if the last message
+        // read as sad/anxious/angry, acknowledge that
+        // before the usual greeting instead of ignoring it.
         if (["hello", "hi", "hey", "hello there", "hey there"].includes(text)) {
+
+            if (mood !== "calm" && mood !== "happy") {
+
+                return (
+                    moodAcknowledgement() +
+                    "Hey — I'm here if you want to talk, or happy to just chat about something else."
+                );
+            }
 
             return randomResponse([
                 "Hi — good to see you.",
@@ -407,6 +424,86 @@ window.Aurora = (function () {
                 "Hello! Ready when you are.",
                 "Hey! How's your day going?"
             ]);
+        }
+
+        // GOOD MORNING / GOOD NIGHT
+        if (text.includes("good morning")) {
+
+            return randomResponse([
+                "Good morning. Hope today treats you well.",
+                "Morning! Let's make it a good one."
+            ]);
+        }
+
+        if (text.includes("good night") || text.includes("goodnight")) {
+
+            return randomResponse([
+                "Good night. Rest well.",
+                "Sleep well — talk soon."
+            ]);
+        }
+
+        // GOODBYE
+        if (
+            ["bye", "goodbye", "see you", "see ya", "later"].includes(text) ||
+            text.startsWith("bye ")
+        ) {
+
+            return randomResponse([
+                "Take care.",
+                "See you around.",
+                "Bye for now."
+            ]);
+        }
+
+        // THANKS
+        if (
+            text.includes("thank you") ||
+            text.includes("thanks") ||
+            text === "ty"
+        ) {
+
+            return randomResponse([
+                "You're welcome.",
+                "Anytime.",
+                "Happy to help."
+            ]);
+        }
+
+        // HELP / WHAT CAN YOU DO
+        if (
+            text.includes("what can you do") ||
+            text.includes("help me") ||
+            text === "help"
+        ) {
+
+            return (
+                "I can chat, tell jokes, do quick math, check the time or date, " +
+                "remember things you tell me (\"my favorite color is blue\"), " +
+                "search the web, and talk through how you're feeling if you want. " +
+                "What sounds good?"
+            );
+        }
+
+        // BOREDOM
+        if (text.includes("im bored") || text.includes("i am bored") || text === "bored") {
+
+            return randomResponse([
+                "Want a joke, or something to think about instead?",
+                "I could tell you a joke, or we could just talk — your call."
+            ]);
+        }
+
+        // COMPLIMENTS TO AURORA
+        if (
+            text.includes("i like you") ||
+            text.includes("you are smart") ||
+            text.includes("youre smart") ||
+            text.includes("you are great") ||
+            text.includes("youre great")
+        ) {
+
+            return "That's kind of you to say — thank you.";
         }
 
         // HOW ARE YOU
@@ -463,8 +560,11 @@ window.Aurora = (function () {
         }
 
         // ENCOURAGEMENT
+        // Note: normalizeText already turns "cant" into
+        // "cannot" (typo dictionary), so match on "cannot"
+        // here — matching "cant" literally would never fire.
         if (
-            text.includes("i cant do this") ||
+            text.includes("i cannot do this") ||
             text.includes("i can't do this") ||
             text.includes("i give up") ||
             text.includes("this is too hard")
@@ -473,14 +573,26 @@ window.Aurora = (function () {
             return "Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?";
         }
 
-        // JOKES — different set from Liminal, dawn/light themed
+        // JOKES — different set from Liminal, dawn/light themed.
+        // Mood-aware: if things seem heavy, check in before
+        // just cracking a joke.
         if (text.includes("tell me a joke") || text.includes("make me laugh") || text === "joke") {
 
-            return randomResponse([
+            const joke = randomResponse([
                 "Why did the sun go to therapy? Too many bright ideas.",
                 "I told the horizon a joke. It just kept rising to the occasion.",
                 "Mornings are just nights that peer-pressured the sky into color."
             ]);
+
+            if (mood === "sad" || mood === "anxious") {
+
+                return (
+                    "I can — though if you're not feeling great, I'm also just here to talk. " +
+                    "Here's one anyway: " + joke
+                );
+            }
+
+            return joke;
         }
 
         // REMEMBER THAT
@@ -662,54 +774,78 @@ window.Aurora = (function () {
         // conversational intents before giving up.
         // Deliberately skips memory/search/math:
         // those need exact structure to parse safely.
+        //
+        // Replies here go through fuzzyReply(), which
+        // marks clarity as "fuzzy" (distinct from "clear"
+        // exact matches and "uncertain" true misses) and
+        // adds a light hedge, since a fuzzy match is a
+        // best guess, not a sure read.
         // ==========================================
+
+        function fuzzyReply(text) {
+            setClarity("fuzzy");
+            return text + " (Let me know if I misread that.)";
+        }
 
         if (fuzzyMatchesAny(text, ["hello", "hi", "hey"])) {
 
-            return randomResponse([
+            return fuzzyReply(randomResponse([
                 "Hi — good to see you.",
                 "Hey there. What's on your mind?",
                 "Hello! Ready when you are."
-            ]);
+            ]));
         }
 
         if (fuzzyMatchesAny(text, ["how are you"])) {
 
-            return "I'm steady. More importantly — how are you doing?";
+            return fuzzyReply("I'm steady. More importantly — how are you doing?");
         }
 
         if (fuzzyMatchesAny(text, ["what is your name", "who are you"])) {
 
-            return "I'm Aurora. Liminal's sibling, different approach.";
+            return fuzzyReply("I'm Aurora. Liminal's sibling, different approach.");
         }
 
         if (fuzzyMatchesAny(text, ["who made you", "who created you", "who built you"])) {
 
-            return randomResponse([
+            return fuzzyReply(randomResponse([
                 "Jacobo built me, same as Liminal — just a different mind.",
                 "Jacobo's the one behind me."
-            ]);
+            ]));
         }
 
         if (fuzzyMatchesAny(text, ["tell me a joke", "make me laugh", "joke"])) {
 
-            return randomResponse([
+            return fuzzyReply(randomResponse([
                 "Why did the sun go to therapy? Too many bright ideas.",
                 "I told the horizon a joke. It just kept rising to the occasion.",
                 "Mornings are just nights that peer-pressured the sky into color."
-            ]);
+            ]));
         }
 
         if (fuzzyMatchesAny(text, ["i cannot do this", "i give up", "this is too hard"])) {
 
-            return "Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?";
+            return fuzzyReply("Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?");
+        }
+
+        if (fuzzyMatchesAny(text, ["thank you", "thanks"])) {
+
+            return fuzzyReply("You're welcome.");
+        }
+
+        if (fuzzyMatchesAny(text, ["what can you do", "help me"])) {
+
+            return fuzzyReply(
+                "I can chat, tell jokes, do quick math, check the time or date, " +
+                "remember things you tell me, and search the web."
+            );
         }
 
         if (fuzzyMatchesAny(text, ["what time is it"])) {
 
             const now = new Date();
 
-            return (
+            return fuzzyReply(
                 "It's " +
                 now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
                 " right now."
@@ -720,7 +856,7 @@ window.Aurora = (function () {
 
             const now = new Date();
 
-            return (
+            return fuzzyReply(
                 "Today's " +
                 now.toLocaleDateString([], {
                     weekday: "long",
