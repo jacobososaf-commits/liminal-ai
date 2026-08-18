@@ -71,9 +71,15 @@ window.Aurora = (function () {
 
     function updateMood(text) {
 
+        const textWords = text.split(" ").filter(Boolean);
+
         for (const key in MOOD_WORDS) {
 
-            if (MOOD_WORDS[key].some(word => text.includes(word))) {
+            const hit = MOOD_WORDS[key].some(moodWord =>
+                textWords.some(tw => similarWord(tw, moodWord))
+            );
+
+            if (hit) {
                 mood = key;
                 return;
             }
@@ -118,17 +124,144 @@ window.Aurora = (function () {
     // ==========================================
     // NORMALIZATION
     //
-    // Lighter-touch than Liminal's — Aurora
-    // leans on softer pattern matching instead
-    // of a big slang dictionary.
+    // Fixes common typos/slang up front (cheap,
+    // exact), then fuzzy matching below catches
+    // whatever this dictionary misses.
     // ==========================================
+
+    const TYPO_REPLACEMENTS = {
+        "wat": "what",
+        "wut": "what",
+        "whats": "what is",
+        "wuts": "what is",
+        "hw": "how",
+        "hows": "how is",
+        "yuo": "you",
+        "u": "you",
+        "ur": "your",
+        "youre": "you are",
+        "im": "i am",
+        "ive": "i have",
+        "dont": "do not",
+        "cant": "cannot",
+        "wont": "will not",
+        "teh": "the",
+        "helo": "hello",
+        "hii": "hi",
+        "heyy": "hey",
+        "pls": "please",
+        "plz": "please",
+        "fav": "favorite",
+        "favorite": "favorite",
+        "favourite": "favorite",
+        "favroite": "favorite",
+        "favrite": "favorite",
+        "colour": "color",
+        "joek": "joke",
+        "jok": "joke"
+    };
 
     function normalizeText(text) {
 
-        return String(text || "")
+        let normalized = String(text || "")
             .toLowerCase()
             .trim()
             .replace(/\s+/g, " ");
+
+        const words = normalized.split(" ");
+
+        const replaced = words.map(word => {
+
+            const stripped = word.replace(/[?!.,]/g, "");
+
+            if (Object.prototype.hasOwnProperty.call(TYPO_REPLACEMENTS, stripped)) {
+                return TYPO_REPLACEMENTS[stripped];
+            }
+
+            return word;
+        });
+
+        return replaced.join(" ").replace(/\s+/g, " ").trim();
+    }
+
+
+    // ==========================================
+    // FUZZY MATCHING
+    //
+    // Catches typos the dictionary above doesn't
+    // cover — e.g. "hlelo", "jokee", "namee".
+    // Word-distance based, same idea as Liminal's
+    // levenshtein/similarWord.
+    // ==========================================
+
+    function levenshtein(a, b) {
+
+        const matrix = [];
+
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+        for (let i = 1; i <= b.length; i++) {
+
+            for (let j = 1; j <= a.length; j++) {
+
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+
+                    matrix[i][j] = matrix[i - 1][j - 1];
+
+                } else {
+
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
+            }
+        }
+
+        return matrix[b.length][a.length];
+    }
+
+    function similarWord(word, target) {
+
+        if (!word || !target) return false;
+        if (word === target) return true;
+
+        // Words this short are too ambiguous to fuzzy-match
+        // safely ("i" vs "hi" would otherwise "match").
+        // Typos on short words are handled by the
+        // TYPO_REPLACEMENTS dictionary instead.
+        if (word.length <= 2 || target.length <= 2) return false;
+
+        const distance = levenshtein(word, target);
+        const maxDistance = target.length <= 4 ? 1 : 2;
+
+        return distance <= maxDistance;
+    }
+
+    // True if enough words in `phrase` have a close
+    // match somewhere in `text` (order doesn't matter).
+    function fuzzyPhraseMatch(text, phrase) {
+
+        const textWords = text.split(" ").filter(Boolean);
+        const phraseWords = phrase.split(" ").filter(Boolean);
+
+        let matched = 0;
+
+        for (const pw of phraseWords) {
+
+            if (textWords.some(tw => similarWord(tw, pw))) {
+                matched++;
+            }
+        }
+
+        return (matched / phraseWords.length) >= 0.75;
+    }
+
+    function fuzzyMatchesAny(text, phrases) {
+
+        return phrases.some(phrase => fuzzyPhraseMatch(text, phrase));
     }
 
 
@@ -519,6 +652,84 @@ window.Aurora = (function () {
             } catch (error) {
                 // Fall through.
             }
+        }
+
+        // ==========================================
+        // FUZZY FALLBACK
+        //
+        // Nothing matched exactly above — try
+        // typo-tolerant matching on the same
+        // conversational intents before giving up.
+        // Deliberately skips memory/search/math:
+        // those need exact structure to parse safely.
+        // ==========================================
+
+        if (fuzzyMatchesAny(text, ["hello", "hi", "hey"])) {
+
+            return randomResponse([
+                "Hi — good to see you.",
+                "Hey there. What's on your mind?",
+                "Hello! Ready when you are."
+            ]);
+        }
+
+        if (fuzzyMatchesAny(text, ["how are you"])) {
+
+            return "I'm steady. More importantly — how are you doing?";
+        }
+
+        if (fuzzyMatchesAny(text, ["what is your name", "who are you"])) {
+
+            return "I'm Aurora. Liminal's sibling, different approach.";
+        }
+
+        if (fuzzyMatchesAny(text, ["who made you", "who created you", "who built you"])) {
+
+            return randomResponse([
+                "Jacobo built me, same as Liminal — just a different mind.",
+                "Jacobo's the one behind me."
+            ]);
+        }
+
+        if (fuzzyMatchesAny(text, ["tell me a joke", "make me laugh", "joke"])) {
+
+            return randomResponse([
+                "Why did the sun go to therapy? Too many bright ideas.",
+                "I told the horizon a joke. It just kept rising to the occasion.",
+                "Mornings are just nights that peer-pressured the sky into color."
+            ]);
+        }
+
+        if (fuzzyMatchesAny(text, ["i cannot do this", "i give up", "this is too hard"])) {
+
+            return "Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?";
+        }
+
+        if (fuzzyMatchesAny(text, ["what time is it"])) {
+
+            const now = new Date();
+
+            return (
+                "It's " +
+                now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+                " right now."
+            );
+        }
+
+        if (fuzzyMatchesAny(text, ["what is the date", "what day is it"])) {
+
+            const now = new Date();
+
+            return (
+                "Today's " +
+                now.toLocaleDateString([], {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                }) +
+                "."
+            );
         }
 
         // UNKNOWN
