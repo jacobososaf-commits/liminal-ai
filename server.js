@@ -1,5 +1,5 @@
 // ==========================================
-// LIMINAL AI 0.75 BACKEND
+// LIMINAL AI 0.8 BACKEND
 // ==========================================
 
 const express = require("express");
@@ -29,7 +29,7 @@ app.get("/", (req, res) => {
     res.json({
         success: true,
         message: "Liminal AI backend is online.",
-        version: "0.75"
+        version: "0.8.0"
     });
 
 });
@@ -69,7 +69,7 @@ function duckDuckGoSearch(query) {
             url,
             {
                 headers: {
-                    "User-Agent": "LiminalAI/0.75"
+                    "User-Agent": "LiminalAI/0.8"
                 }
             },
 
@@ -347,7 +347,7 @@ app.use((req, res) => {
 app.listen(PORT, () => {
 
     console.log(
-        `Liminal AI 0.75 backend running on port ${PORT}`
+        `Liminal AI 0.8 backend running on port ${PORT}`
     );
 
 });
