@@ -1,8 +1,26 @@
 // ==========================================
-// LIMINAL AI 0.76
+// LIMINAL AI 0.8
 // liminal.js
 //
 // ORIGINAL LIMINAL AI AGENT
+//
+// 0.8
+// - Conversation context
+// - Short-term context memory
+// - Mood system
+// - Mood-aware responses
+// - Context-aware follow-ups
+// - Existing long-term memory preserved
+// - Existing corrections preserved
+// - Existing fuzzy matching preserved
+// - Existing web search preserved
+// - Existing backend preserved
+// - Existing math preserved
+// - Existing confidence preserved
+// - Existing personality preserved
+// - Fixed false correction detection
+// - Fixed duplicate context system
+// - Fixed mood initialization
 // ==========================================
 
 
@@ -53,19 +71,439 @@ function saveCorrections() {
 
 
 // ==========================================
-// CONTEXT
+// SHORT-TERM CONVERSATION CONTEXT
+// ==========================================
+//
+// Context is NOT permanent memory.
+//
+// Example:
+//
+// User: I like Minecraft.
+// AI: Minecraft is pretty cool.
+// User: What do you like about it?
+//
+// "it" can refer to Minecraft.
+//
+// Maximum stored messages: 12
+// ==========================================
+
+let conversationContext =
+    JSON.parse(
+        localStorage.getItem("liminalContext") || "[]"
+    );
+
+
+// Make sure old/broken context data does not crash Liminal.
+
+if (
+    !Array.isArray(conversationContext)
+) {
+
+    conversationContext = [];
+
+}
+
+
+const MAX_CONTEXT_MESSAGES = 12;
+
+
+function saveConversationContext() {
+
+    localStorage.setItem(
+        "liminalContext",
+        JSON.stringify(
+            conversationContext
+        )
+    );
+
+}
+
+
+function addContext(
+    role,
+    text
+) {
+
+    if (!text) {
+        return;
+    }
+
+    conversationContext.push({
+
+        role:
+            role,
+
+        text:
+            String(text),
+
+        time:
+            new Date().toISOString()
+
+    });
+
+
+    if (
+        conversationContext.length >
+        MAX_CONTEXT_MESSAGES
+    ) {
+
+        conversationContext =
+            conversationContext.slice(
+                -MAX_CONTEXT_MESSAGES
+            );
+
+    }
+
+
+    saveConversationContext();
+
+}
+
+
+function getLastUserMessage() {
+
+    for (
+        let i = conversationContext.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        if (
+            conversationContext[i].role ===
+            "user"
+        ) {
+
+            return conversationContext[i].text;
+
+        }
+
+    }
+
+    return "";
+
+}
+
+
+function getLastAIMessage() {
+
+    for (
+        let i = conversationContext.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        if (
+            conversationContext[i].role ===
+            "ai"
+        ) {
+
+            return conversationContext[i].text;
+
+        }
+
+    }
+
+    return "";
+
+}
+
+
+function clearConversationContext() {
+
+    conversationContext = [];
+
+    saveConversationContext();
+
+}
+
+
+// ==========================================
+// CONTEXT STATE
 // ==========================================
 
 let lastTopic = null;
+
 let lastResponse = "";
+
 let lastQuestion = "";
+
 let waitingForClarification = false;
 
 let lastConfidence = "high";
 
+
+// ==========================================
+// MOOD STATE
+// ==========================================
+
+let currentMood = "neutral";
+
+let previousMood = "neutral";
+
+
+// ==========================================
+// CONTEXT HELPERS
+// ==========================================
+
+function setContext(
+    topic,
+    value = null
+) {
+
+    if (!topic) {
+        return;
+    }
+
+    lastTopic =
+        String(topic);
+
+    if (value !== null) {
+
+        remember(
+            topic,
+            value
+        );
+
+    }
+
+}
+
+
+function getContextTopic() {
+
+    return lastTopic;
+
+}
+
+
+function clearContext() {
+
+    lastTopic = null;
+
+    waitingForClarification = false;
+
+}
+
+
+// ==========================================
+// CONFIDENCE
+// ==========================================
+
 function setConfidence(level) {
 
-    lastConfidence = level;
+    lastConfidence =
+        level;
+
+}
+
+
+// ==========================================
+// MOOD SYSTEM
+// ==========================================
+
+const MOODS = [
+
+    "neutral",
+    "happy",
+    "curious",
+    "excited",
+    "thoughtful",
+    "confused",
+    "playful",
+    "helpful"
+
+];
+
+
+function setMood(mood) {
+
+    if (
+        !MOODS.includes(mood)
+    ) {
+
+        mood =
+            "neutral";
+
+    }
+
+
+    previousMood =
+        currentMood;
+
+    currentMood =
+        mood;
+
+    updateMoodUI();
+
+}
+
+
+function getMood() {
+
+    return currentMood;
+
+}
+
+
+function updateMoodUI() {
+
+    const moodElement =
+        document.getElementById(
+            "moodStatus"
+        );
+
+    if (!moodElement) {
+        return;
+    }
+
+
+    const moodLabels = {
+
+        neutral:
+            "😐 Neutral",
+
+        happy:
+            "😊 Happy",
+
+        curious:
+            "🤔 Curious",
+
+        excited:
+            "🤩 Excited",
+
+        thoughtful:
+            "🧠 Thoughtful",
+
+        confused:
+            "😕 Confused",
+
+        playful:
+            "😎 Playful",
+
+        helpful:
+            "🤝 Helpful"
+
+    };
+
+
+    moodElement.textContent =
+        moodLabels[currentMood] ||
+        "😐 Neutral";
+
+}
+
+
+// ==========================================
+// MOOD DETECTION
+// ==========================================
+
+function detectMoodFromMessage(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    if (
+        matchesIntent(
+            normalized,
+            [
+                "haha",
+                "lol",
+                "lmao",
+                "that is funny",
+                "thats funny",
+                "you are funny",
+                "funny"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        return "playful";
+
+    }
+
+
+    if (
+        matchesIntent(
+            normalized,
+            [
+                "awesome",
+                "amazing",
+                "that is awesome",
+                "that is amazing",
+                "this is awesome",
+                "this is amazing"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        return "excited";
+
+    }
+
+
+    if (
+        matchesIntent(
+            normalized,
+            [
+                "cool",
+                "nice",
+                "great",
+                "good",
+                "i like that"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        return "happy";
+
+    }
+
+
+    if (
+        matchesIntent(
+            normalized,
+            [
+                "i do not understand",
+                "i dont understand",
+                "what does that mean",
+                "i am confused",
+                "im confused"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return "confused";
+
+    }
+
+
+    if (
+        normalized.includes("?")
+    ) {
+
+        return "curious";
+
+    }
+
+
+    return null;
 
 }
 
@@ -76,15 +514,20 @@ function setConfidence(level) {
 
 function normalizeText(text) {
 
-    text = String(text || "")
-        .toLowerCase()
-        .trim();
+    text =
+        String(text || "")
+            .toLowerCase()
+            .trim();
 
-    const replacements = {
 
-        "whats": "what is",
-        "wats": "what is",
-        "wat": "what",
+const replacements = {
+
+    "what's": "what is",
+    "whats": "what is",
+    "wats": "what is",
+    "wat": "what",
+
+    "iis": "is",
 
         "whos": "who is",
 
@@ -93,7 +536,6 @@ function normalizeText(text) {
 
         "fav": "favorite",
         "favourite": "favorite",
-
         "colour": "color",
 
         "pls": "please",
@@ -106,7 +548,6 @@ function normalizeText(text) {
         "u": "you",
         "ur": "your",
         "ya": "you",
-
         "r": "are",
 
         "cant": "cannot",
@@ -131,12 +572,14 @@ function normalizeText(text) {
         "thanx": "thanks",
 
         "googl": "google",
-
         "hows": "how is"
 
     };
 
-    for (const wrong in replacements) {
+
+    for (
+        const wrong in replacements
+    ) {
 
         const regex =
             new RegExp(
@@ -149,6 +592,7 @@ function normalizeText(text) {
                 "g"
             );
 
+
         text =
             text.replace(
                 regex,
@@ -157,8 +601,12 @@ function normalizeText(text) {
 
     }
 
+
     return text
-        .replace(/[^\S\r\n]+/g, " ")
+        .replace(
+            /[^\S\r\n]+/g,
+            " "
+        )
         .trim();
 
 }
@@ -170,10 +618,15 @@ function normalizeText(text) {
 
 function levenshtein(a, b) {
 
-    a = String(a || "");
-    b = String(b || "");
+    a =
+        String(a || "");
+
+    b =
+        String(b || "");
+
 
     const matrix = [];
+
 
     for (
         let i = 0;
@@ -185,6 +638,7 @@ function levenshtein(a, b) {
 
     }
 
+
     for (
         let j = 0;
         j <= a.length;
@@ -194,6 +648,7 @@ function levenshtein(a, b) {
         matrix[0][j] = j;
 
     }
+
 
     for (
         let i = 1;
@@ -234,6 +689,7 @@ function levenshtein(a, b) {
 
     }
 
+
     return matrix[b.length][a.length];
 
 }
@@ -241,11 +697,12 @@ function levenshtein(a, b) {
 
 // ==========================================
 // FUZZY WORD MATCHING
-//
-// THIS IS ACTUALLY USED BY LIMINAL.
 // ==========================================
 
-function similarWord(word, target) {
+function similarWord(
+    word,
+    target
+) {
 
     word =
         String(word || "")
@@ -257,13 +714,59 @@ function similarWord(word, target) {
             .toLowerCase()
             .trim();
 
-    if (!word || !target) {
+
+    if (
+        !word ||
+        !target
+    ) {
+
         return false;
+
     }
 
-    if (word === target) {
+
+    // Exact match
+
+    if (
+        word === target
+    ) {
+
         return true;
+
     }
+
+
+    // Very short words should never
+    // be fuzzy matched.
+
+    if (
+        word.length <= 2 ||
+        target.length <= 2
+    ) {
+
+        return false;
+
+    }
+
+
+    // Words with different first letters
+    // are much less likely to be typos.
+    //
+    // This prevents things like:
+    //
+    // game → name
+    //
+    // from being treated as the same word.
+
+    if (
+        word.charAt(0) !==
+        target.charAt(0)
+    ) {
+
+        return false;
+
+    }
+
 
     const distance =
         levenshtein(
@@ -271,34 +774,45 @@ function similarWord(word, target) {
             target
         );
 
+
     const longest =
         Math.max(
             word.length,
             target.length
         );
 
+
     let maxDistance = 1;
 
-    if (longest >= 6) {
+
+    if (
+        longest >= 8
+    ) {
+
         maxDistance = 2;
+
     }
 
-    if (longest >= 10) {
+
+    if (
+        longest >= 12
+    ) {
+
         maxDistance = 3;
+
     }
 
-    return distance <= maxDistance;
+
+    return (
+        distance <=
+        maxDistance
+    );
 
 }
 
 
 // ==========================================
 // FUZZY PHRASE MATCHING
-//
-// This is the important part.
-//
-// Liminal now ACTUALLY uses fuzzy matching
-// when deciding what the user means.
 // ==========================================
 
 function fuzzyPhraseMatch(
@@ -312,10 +826,12 @@ function fuzzyPhraseMatch(
             .split(/\s+/)
             .filter(Boolean);
 
+
     const targetWords =
         normalizeText(phrase)
             .split(/\s+/)
             .filter(Boolean);
+
 
     if (
         !inputWords.length ||
@@ -326,33 +842,38 @@ function fuzzyPhraseMatch(
 
     }
 
+
     const allowExtraWords =
         options.allowExtraWords !== false;
+
 
     const maxExtra =
         options.maxExtraWords ??
         3;
 
+
     if (
         !allowExtraWords &&
-        inputWords.length !== targetWords.length
+        inputWords.length !==
+            targetWords.length
     ) {
 
         return false;
 
     }
+
 
     if (
         allowExtraWords &&
         inputWords.length >
-            targetWords.length + maxExtra
+            targetWords.length +
+            maxExtra
     ) {
 
         return false;
 
     }
 
-    // Exact phrase first.
 
     if (
         inputWords.join(" ") ===
@@ -363,12 +884,13 @@ function fuzzyPhraseMatch(
 
     }
 
-    // Compare each target word against
-    // the corresponding input word.
 
-    const used = new Set();
+    const used =
+        new Set();
+
 
     let matched = 0;
+
 
     for (
         let i = 0;
@@ -379,9 +901,10 @@ function fuzzyPhraseMatch(
         const targetWord =
             targetWords[i];
 
-        let found = false;
 
-        // First try the expected position.
+        let found =
+            false;
+
 
         if (
             inputWords[i] &&
@@ -392,12 +915,13 @@ function fuzzyPhraseMatch(
         ) {
 
             used.add(i);
+
             matched++;
+
             continue;
 
         }
 
-        // Then search nearby words.
 
         for (
             let j = 0;
@@ -405,9 +929,14 @@ function fuzzyPhraseMatch(
             j++
         ) {
 
-            if (used.has(j)) {
+            if (
+                used.has(j)
+            ) {
+
                 continue;
+
             }
+
 
             if (
                 similarWord(
@@ -417,8 +946,11 @@ function fuzzyPhraseMatch(
             ) {
 
                 used.add(j);
+
                 matched++;
+
                 found = true;
+
                 break;
 
             }
@@ -426,10 +958,11 @@ function fuzzyPhraseMatch(
         }
 
         if (!found) {
-            // Continue checking the remaining words.
+            continue;
         }
 
     }
+
 
     return (
         matched ===
@@ -452,6 +985,7 @@ function matchesIntent(
     const normalized =
         normalizeText(text);
 
+
     for (
         const phrase of phrases
     ) {
@@ -470,6 +1004,7 @@ function matchesIntent(
 
     }
 
+
     return false;
 
 }
@@ -477,13 +1012,6 @@ function matchesIntent(
 
 // ==========================================
 // FUZZY PREFIX
-//
-// Used for things like:
-//
-// googl minecraft
-// search for minecraft
-// rember that...
-// my favorite...
 // ==========================================
 
 function matchesPrefix(
@@ -496,9 +1024,11 @@ function matchesPrefix(
             .split(/\s+/)
             .filter(Boolean);
 
+
     if (!words.length) {
         return null;
     }
+
 
     for (
         const prefix of prefixes
@@ -509,6 +1039,7 @@ function matchesPrefix(
                 .split(/\s+/)
                 .filter(Boolean);
 
+
         if (
             words.length <
             prefixWords.length
@@ -518,7 +1049,10 @@ function matchesPrefix(
 
         }
 
-        let matches = true;
+
+        let matches =
+            true;
+
 
         for (
             let i = 0;
@@ -533,18 +1067,24 @@ function matchesPrefix(
                 )
             ) {
 
-                matches = false;
+                matches =
+                    false;
+
                 break;
 
             }
 
         }
 
+
         if (matches) {
+
             return prefix;
+
         }
 
     }
+
 
     return null;
 
@@ -558,23 +1098,40 @@ function matchesPrefix(
 function cleanMemoryKey(key) {
 
     return normalizeText(key)
-        .replace(/[?!.]/g, "")
-        .replace(/^my\s+/, "")
+        .replace(
+            /[?!.]/g,
+            ""
+        )
+        .replace(
+            /^my\s+/,
+            ""
+        )
         .trim();
 
 }
 
 
-function remember(key, value) {
+function remember(
+    key,
+    value
+) {
 
     key =
         cleanMemoryKey(key);
 
+
+    if (!key) {
+        return;
+    }
+
+
     memory[key] =
         value;
 
+
     lastTopic =
         key;
+
 
     saveMemory();
 
@@ -594,7 +1151,9 @@ function getMemory(key) {
 // RANDOM RESPONSE
 // ==========================================
 
-function randomResponse(responses) {
+function randomResponse(
+    responses
+) {
 
     return responses[
         Math.floor(
@@ -617,9 +1176,11 @@ function updateThemeButton() {
             "themeButton"
         );
 
+
     if (!button) {
         return;
     }
+
 
     if (
         document.body.classList.contains(
@@ -646,10 +1207,12 @@ function toggleTheme() {
         "light-mode"
     );
 
+
     const isLight =
         document.body.classList.contains(
             "light-mode"
         );
+
 
     localStorage.setItem(
         "liminalTheme",
@@ -657,6 +1220,7 @@ function toggleTheme() {
             ? "light"
             : "dark"
     );
+
 
     updateThemeButton();
 
@@ -670,7 +1234,10 @@ function loadTheme() {
             "liminalTheme"
         );
 
-    if (saved === "light") {
+
+    if (
+        saved === "light"
+    ) {
 
         document.body.classList.add(
             "light-mode"
@@ -683,6 +1250,7 @@ function loadTheme() {
         );
 
     }
+
 
     updateThemeButton();
 
@@ -697,6 +1265,7 @@ function isSearchRequest(text) {
 
     const normalized =
         normalizeText(text);
+
 
     const exactPrefixes = [
 
@@ -713,6 +1282,7 @@ function isSearchRequest(text) {
 
     ];
 
+
     if (
         matchesPrefix(
             normalized,
@@ -724,46 +1294,54 @@ function isSearchRequest(text) {
 
     }
 
-    // Extra fuzzy search detection.
 
     const words =
         normalized
             .split(/\s+/)
             .filter(Boolean);
 
+
     if (!words.length) {
         return false;
     }
 
+
     const first =
         words[0];
 
-    if (
-        similarWord(first, "google") ||
-        similarWord(first, "search")
-    ) {
-
-        return true;
-
-    }
 
     if (
-        words.length >= 2 &&
-        (
-            similarWord(
-                words[0],
-                "look"
-            ) &&
-            similarWord(
-                words[1],
-                "up"
-            )
+        similarWord(
+            first,
+            "google"
+        ) ||
+        similarWord(
+            first,
+            "search"
         )
     ) {
 
         return true;
 
     }
+
+
+    if (
+        words.length >= 2 &&
+        similarWord(
+            words[0],
+            "look"
+        ) &&
+        similarWord(
+            words[1],
+            "up"
+        )
+    ) {
+
+        return true;
+
+    }
+
 
     return false;
 
@@ -774,6 +1352,7 @@ function getSearchQuery(text) {
 
     const normalized =
         normalizeText(text);
+
 
     const prefixes = [
 
@@ -790,18 +1369,23 @@ function getSearchQuery(text) {
 
     ];
 
+
     const matched =
         matchesPrefix(
             normalized,
             prefixes
         );
 
+
     if (matched) {
 
         const prefixWords =
-            normalizeText(matched)
+            normalizeText(
+                matched
+            )
                 .split(/\s+/)
                 .length;
+
 
         return normalized
             .split(/\s+/)
@@ -810,6 +1394,7 @@ function getSearchQuery(text) {
             .trim();
 
     }
+
 
     return normalized.trim();
 
@@ -824,11 +1409,15 @@ async function searchWeb(query) {
             await fetch(
                 BACKEND_URL +
                 "/api/search?q=" +
-                encodeURIComponent(query)
+                encodeURIComponent(
+                    query
+                )
             );
+
 
         const data =
             await response.json();
+
 
         if (!response.ok) {
 
@@ -840,6 +1429,7 @@ async function searchWeb(query) {
 
         }
 
+
         return data;
 
     } catch (error) {
@@ -849,13 +1439,17 @@ async function searchWeb(query) {
             error
         );
 
+
         return {
 
-            success: false,
+            success:
+                false,
 
-            available: false,
+            available:
+                false,
 
-            results: [],
+            results:
+                [],
 
             message:
                 "The search service is currently unavailable."
@@ -876,6 +1470,7 @@ function findMemoryKey(text) {
     text =
         normalizeText(text);
 
+
     if (
         text.includes(
             "favorite color"
@@ -888,6 +1483,7 @@ function findMemoryKey(text) {
         return "favorite color";
 
     }
+
 
     if (
         text.includes(
@@ -902,6 +1498,7 @@ function findMemoryKey(text) {
 
     }
 
+
     if (
         text.includes(
             "favorite food"
@@ -915,6 +1512,63 @@ function findMemoryKey(text) {
 
     }
 
+
+    if (
+        text.includes(
+            "favorite song"
+        ) ||
+        text.includes(
+            "what song do i like"
+        )
+    ) {
+
+        return "favorite song";
+
+    }
+
+
+    if (
+        text.includes(
+            "favorite music"
+        ) ||
+        text.includes(
+            "what music do i like"
+        )
+    ) {
+
+        return "favorite music";
+
+    }
+
+
+    if (
+        text.includes(
+            "favorite movie"
+        ) ||
+        text.includes(
+            "what movie do i like"
+        )
+    ) {
+
+        return "favorite movie";
+
+    }
+
+
+    if (
+        text.includes(
+            "favorite animal"
+        ) ||
+        text.includes(
+            "what animal do i like"
+        )
+    ) {
+
+        return "favorite animal";
+
+    }
+
+
     if (
         text.includes(
             "my name"
@@ -924,6 +1578,7 @@ function findMemoryKey(text) {
         return "name";
 
     }
+
 
     if (
         text.includes(
@@ -937,6 +1592,7 @@ function findMemoryKey(text) {
         return "location";
 
     }
+
 
     return null;
 
@@ -952,60 +1608,142 @@ function isCorrection(text) {
     const normalized =
         normalizeText(text);
 
-    const phrases = [
 
-        "no",
-        "no that's wrong",
+    const words =
+        normalized
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+    if (!words.length) {
+        return false;
+    }
+
+
+    // --------------------------------------
+    // Single-word corrections
+    // --------------------------------------
+
+    if (
+        words.length === 1 &&
+        (
+            words[0] === "no" ||
+            words[0] === "nope" ||
+            words[0] === "nah" ||
+            words[0] === "incorrect"
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    // --------------------------------------
+    // Explicit correction phrases
+    // --------------------------------------
+
+    const explicitPhrases = [
+
         "no that is wrong",
-        "that's wrong",
+        "no that is incorrect",
         "that is wrong",
+        "that is incorrect",
         "you are wrong",
-        "you're wrong",
         "incorrect",
         "not correct",
-        "actually"
+        "that is not correct"
 
     ];
 
-    return matchesIntent(
-        normalized,
-        phrases,
-        {
-            allowExtraWords: true,
-            maxExtraWords: 10
+
+    for (
+        const phrase of explicitPhrases
+    ) {
+
+        if (
+            normalized ===
+            phrase
+        ) {
+
+            return true;
+
         }
-    );
+
+    }
+
+
+    // --------------------------------------
+    // "actually" correction
+    // --------------------------------------
+
+    if (
+        normalized.startsWith(
+            "actually "
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    // --------------------------------------
+    // "no, ..." correction
+    // --------------------------------------
+
+    if (
+        /^no\s*,/.test(
+            normalized
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    return false;
 
 }
 
+
+// ==========================================
+// HANDLE CORRECTION
+// ==========================================
 
 function handleCorrection(text) {
 
     let correctionText =
         text
             .replace(
-                /^no[, ]*/i,
+                /^no[,\s]*/i,
                 ""
             )
             .replace(
-                /^actually[, ]*/i,
+                /^actually[,\s]*/i,
                 ""
             )
             .replace(
-                /^that's wrong[, ]*/i,
+                /^that's wrong[,\s]*/i,
                 ""
             )
             .replace(
-                /^that is wrong[, ]*/i,
+                /^that is wrong[,\s]*/i,
                 ""
             )
             .trim();
+
 
     correctionText =
         normalizeText(
             correctionText
         );
 
+
+    // --------------------------------------
+    // Explicit memory correction
+    // --------------------------------------
 
     if (
         correctionText.startsWith(
@@ -1021,16 +1759,19 @@ function handleCorrection(text) {
                 " is "
             );
 
+
         const key =
             cleanMemoryKey(
                 parts[0].substring(3)
             );
+
 
         const value =
             parts
                 .slice(1)
                 .join(" is ")
                 .trim();
+
 
         if (
             key &&
@@ -1041,10 +1782,12 @@ function handleCorrection(text) {
                 memory[key] ||
                 null;
 
+
             remember(
                 key,
                 value
             );
+
 
             corrections.push({
 
@@ -1064,22 +1807,32 @@ function handleCorrection(text) {
 
             });
 
+
             saveCorrections();
+
 
             setConfidence(
                 "high"
             );
 
+
+            setMood(
+                "helpful"
+            );
+
+
             return oldValue
-
                 ? `You're right! I've updated my memory. Your ${key} is now ${value}.`
-
                 : `Got it! I'll remember that your ${key} is ${value}.`;
 
         }
 
     }
 
+
+    // --------------------------------------
+    // Context correction
+    // --------------------------------------
 
     if (
         lastTopic &&
@@ -1093,16 +1846,19 @@ function handleCorrection(text) {
                 .substring(6)
                 .trim();
 
+
         if (value) {
 
             const oldValue =
                 memory[lastTopic] ||
                 null;
 
+
             remember(
                 lastTopic,
                 value
             );
+
 
             corrections.push({
 
@@ -1123,7 +1879,14 @@ function handleCorrection(text) {
 
             });
 
+
             saveCorrections();
+
+
+            setMood(
+                "helpful"
+            );
+
 
             return (
                 "You're right! I've corrected my memory. " +
@@ -1139,14 +1902,190 @@ function handleCorrection(text) {
     }
 
 
+    // --------------------------------------
+    // General correction
+    // --------------------------------------
+
     setConfidence(
         "low"
     );
+
+
+    setMood(
+        "thoughtful"
+    );
+
 
     return (
         "Got it. I know my previous answer was incorrect. " +
         "Tell me the correct information and I'll learn it."
     );
+
+}
+
+
+// ==========================================
+// CONTEXT TOPIC DETECTION
+// ==========================================
+
+function detectContextTopic(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    // --------------------------------------
+    // Memory topic
+    // --------------------------------------
+
+    const memoryKey =
+        findMemoryKey(
+            normalized
+        );
+
+
+    if (memoryKey) {
+
+        return memoryKey;
+
+    }
+
+
+    // --------------------------------------
+    // About X
+    // --------------------------------------
+
+    const aboutMatch =
+        normalized.match(
+            /\babout\s+(.+)$/
+        );
+
+
+    if (
+        aboutMatch &&
+        aboutMatch[1]
+    ) {
+
+        return aboutMatch[1]
+            .trim();
+
+    }
+
+
+    // --------------------------------------
+    // I like X
+    // --------------------------------------
+
+    if (
+        normalized.startsWith(
+            "i like "
+        )
+    ) {
+
+        return normalized
+            .substring(7)
+            .trim();
+
+    }
+
+
+    // --------------------------------------
+    // My X is Y
+    // --------------------------------------
+
+    if (
+        normalized.startsWith(
+            "my "
+        ) &&
+        normalized.includes(
+            " is "
+        )
+    ) {
+
+        const parts =
+            normalized.split(
+                " is "
+            );
+
+
+        return cleanMemoryKey(
+            parts[0]
+        );
+
+    }
+
+
+    return null;
+
+}
+
+
+// ==========================================
+// CONTEXT REFERENCE
+// ==========================================
+
+function resolveContextReference(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    const referenceWords = [
+
+        "it",
+        "that",
+        "this",
+        "they",
+        "them",
+        "he",
+        "she"
+
+    ];
+
+
+    const hasReference =
+        referenceWords.some(
+            word =>
+                normalized
+                    .split(/\s+/)
+                    .includes(word)
+        );
+
+
+    if (!hasReference) {
+        return null;
+    }
+
+
+    if (lastTopic) {
+
+        return lastTopic;
+
+    }
+
+
+    const previousUser =
+        getLastUserMessage();
+
+
+    if (previousUser) {
+
+        const detected =
+            detectContextTopic(
+                previousUser
+            );
+
+
+        if (detected) {
+
+            return detected;
+
+        }
+
+    }
+
+
+    return null;
 
 }
 
@@ -1162,9 +2101,35 @@ function think(originalText) {
             originalText
         );
 
+
     setConfidence(
         "high"
     );
+
+
+    // ======================================
+    // MOOD
+    // ======================================
+
+    const detectedMood =
+        detectMoodFromMessage(
+            originalText
+        );
+
+
+    if (detectedMood) {
+
+        setMood(
+            detectedMood
+        );
+
+    } else {
+
+        setMood(
+            "neutral"
+        );
+
+    }
 
 
     // ======================================
@@ -1193,7 +2158,8 @@ function think(originalText) {
                 "what time is it",
                 "what is the current time",
                 "current time",
-                "time"
+                "time",
+                "what time is it right now"
             ],
             {
                 allowExtraWords: true,
@@ -1204,6 +2170,12 @@ function think(originalText) {
 
         const now =
             new Date();
+
+
+        setMood(
+            "helpful"
+        );
+
 
         return (
             "The current time is " +
@@ -1234,7 +2206,8 @@ function think(originalText) {
                 "what is the date",
                 "what day is it",
                 "today's date",
-                "what is today's date"
+                "what is today's date",
+                "what day are we on"
             ],
             {
                 allowExtraWords: true,
@@ -1245,6 +2218,12 @@ function think(originalText) {
 
         const now =
             new Date();
+
+
+        setMood(
+            "helpful"
+        );
+
 
         return (
             "Today is " +
@@ -1282,7 +2261,10 @@ function think(originalText) {
                 "hi",
                 "hey",
                 "hello there",
-                "hey there"
+                "hey there",
+                "yo",
+                "sup",
+                "what is up"
             ],
             {
                 allowExtraWords: true,
@@ -1291,13 +2273,10 @@ function think(originalText) {
         )
     ) {
 
-        setConfidence(
-            text === "hello" ||
-            text === "hi" ||
-            text === "hey"
-                ? "high"
-                : "medium"
+        setMood(
+            "happy"
         );
+
 
         return randomResponse([
 
@@ -1309,7 +2288,13 @@ function think(originalText) {
 
             "Hello there!",
 
-            "Hi! How's it going?"
+            "Hi! How's it going?",
+
+            "Yo! 😎",
+
+            "Hey! What's up?",
+
+            "I'm here! 🤖"
 
         ]);
 
@@ -1334,13 +2319,92 @@ function think(originalText) {
         )
     ) {
 
+        setMood(
+            "happy"
+        );
+
+
         return randomResponse([
 
             "Good morning! ☀️",
 
             "Good morning! Hope your day is going well.",
 
-            "Morning! 👋"
+            "Morning! 👋",
+
+            "Good morning! Ready to chat? 🤖"
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // GOOD AFTERNOON
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "good afternoon",
+                "afternoon"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        setMood(
+            "happy"
+        );
+
+
+        return randomResponse([
+
+            "Good afternoon! ☀️",
+
+            "Good afternoon!",
+
+            "Afternoon! 👋"
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // GOOD EVENING
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "good evening",
+                "evening"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        setMood(
+            "happy"
+        );
+
+
+        return randomResponse([
+
+            "Good evening! 🌆",
+
+            "Good evening!",
+
+            "Evening! 👋"
 
         ]);
 
@@ -1364,6 +2428,11 @@ function think(originalText) {
             }
         )
     ) {
+
+        setMood(
+            "happy"
+        );
+
 
         return randomResponse([
 
@@ -1389,7 +2458,8 @@ function think(originalText) {
                 "bye",
                 "goodbye",
                 "see you",
-                "see you later"
+                "see you later",
+                "talk to you later"
             ],
             {
                 allowExtraWords: true,
@@ -1397,6 +2467,11 @@ function think(originalText) {
             }
         )
     ) {
+
+        setMood(
+            "happy"
+        );
+
 
         return randomResponse([
 
@@ -1406,7 +2481,9 @@ function think(originalText) {
 
             "Goodbye! 👋",
 
-            "See you!"
+            "See you!",
+
+            "Later! 😎"
 
         ]);
 
@@ -1423,7 +2500,8 @@ function think(originalText) {
             [
                 "thank you",
                 "thanks",
-                "thanks a lot"
+                "thanks a lot",
+                "thank you so much"
             ],
             {
                 allowExtraWords: true,
@@ -1431,6 +2509,11 @@ function think(originalText) {
             }
         )
     ) {
+
+        setMood(
+            "happy"
+        );
+
 
         return randomResponse([
 
@@ -1440,7 +2523,9 @@ function think(originalText) {
 
             "Anytime!",
 
-            "You're welcome! 👋"
+            "You're welcome! 👋",
+
+            "Of course!"
 
         ]);
 
@@ -1457,7 +2542,9 @@ function think(originalText) {
             [
                 "how are you",
                 "how is it going",
-                "how are things"
+                "how are things",
+                "how are you doing",
+                "how have you been"
             ],
             {
                 allowExtraWords: true,
@@ -1465,6 +2552,11 @@ function think(originalText) {
             }
         )
     ) {
+
+        setMood(
+            "happy"
+        );
+
 
         return randomResponse([
 
@@ -1476,11 +2568,76 @@ function think(originalText) {
 
             "I'm running perfectly! 🤖",
 
-            "Doing great! 🤖"
+            "Doing great! 🤖",
+
+            "All systems seem good over here. 😎"
 
         ]);
 
     }
+
+
+    // ======================================
+    // WHAT'S UP
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is up",
+                "what are you doing",
+                "what are you up to"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        return randomResponse([
+
+            "Not much. Just waiting for your next message. 😎",
+
+            "I'm just hanging out in the chat.",
+
+            "Waiting for you! 🤖",
+
+            "Running and ready to talk."
+
+        ]);
+
+    }
+// ======================================
+// FAVORITE GAME
+// ======================================
+
+if (
+    matchesIntent(
+        text,
+        [
+            "what is your favorite game",
+            "what game do you like",
+            "do you have a favorite game"
+        ],
+        {
+            allowExtraWords: true,
+            maxExtraWords: 4
+        }
+    )
+) {
+
+    setMood(
+        "playful"
+    );
+
+    return (
+        "I don't actually play games, but Minecraft would probably be one of my favorites to talk about. 🎮⛏️"
+    );
+
+}
+
 
 
     // ======================================
@@ -1494,7 +2651,8 @@ function think(originalText) {
                 "what is your name",
                 "what is ur name",
                 "who are you",
-                "what are you called"
+                "what are you called",
+                "what should i call you"
             ],
             {
                 allowExtraWords: true,
@@ -1503,8 +2661,68 @@ function think(originalText) {
         )
     ) {
 
+        return "I'm Liminal AI 0.8.";
+
+    }
+
+
+    // ======================================
+    // VERSION
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what version are you",
+                "what is your version",
+                "which version are you",
+                "what version is this",
+                "what version"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
         return (
-            "I'm Liminal AI 0.76."
+            "I'm Liminal AI 0.8. This version adds short-term conversation context and an internal mood system while keeping my memory, corrections, math, and web search."
+        );
+
+    }
+
+
+    // ======================================
+    // MOOD
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is your mood",
+                "how are you feeling",
+                "how do you feel",
+                "what mood are you in"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        setMood(
+            "thoughtful"
+        );
+
+
+        return (
+            "My current conversational mood is " +
+            currentMood +
+            ". It's an internal state I use to vary how I respond, not a human emotion."
         );
 
     }
@@ -1521,7 +2739,8 @@ function think(originalText) {
                 "who made you",
                 "who created you",
                 "who built you",
-                "who is your creator"
+                "who is your creator",
+                "who programmed you"
             ],
             {
                 allowExtraWords: true,
@@ -1546,6 +2765,337 @@ function think(originalText) {
 
 
     // ======================================
+    // ARE YOU REAL
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "are you real",
+                "are you actually real",
+                "are you a real person",
+                "are you human"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "I'm not a human. I'm a program running Liminal AI's code, so I'm real as software rather than as a person. 🤖"
+        );
+
+    }
+
+
+    // ======================================
+    // ROBOT / AI
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "are you a robot",
+                "are you a bot",
+                "are you an ai",
+                "are you artificial intelligence"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "I'm an AI program. You could call me a bot, although I'm software rather than a physical robot. 🤖"
+        );
+
+    }
+
+
+    // ======================================
+    // FEELINGS
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "do you have feelings",
+                "do you feel things",
+                "can you feel",
+                "do you have emotions",
+                "are you emotional"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "I don't experience feelings the way people do. My 0.8 mood system is conversational behavior, not actual human emotion."
+        );
+
+    }
+
+
+    // ======================================
+    // SMART
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "are you smart",
+                "how smart are you",
+                "do you think you are smart",
+                "are you intelligent"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "I'm pretty capable at the things I've been programmed to do, but I still have limits. I'm not perfect. 🤖"
+        );
+
+    }
+
+
+    // ======================================
+    // DO YOU LIKE ME
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "do you like me",
+                "do you like talking to me",
+                "do you enjoy talking to me"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        setMood(
+            "happy"
+        );
+
+
+        return (
+            "I don't experience likes and dislikes exactly like a person, but I definitely enjoy being useful in our conversations. 😎"
+        );
+
+    }
+
+
+    // ======================================
+    // FAVORITE COLOR
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is your favorite color",
+                "what color do you like",
+                "what is your favorite colour"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "I don't really have personal preferences, but yellow is a pretty good choice. 💛"
+        );
+
+    }
+
+
+// ======================================
+// FAVORITE PART / THING ABOUT SOMETHING
+// ======================================
+
+const favoritePartPatterns = [
+
+    "what is your favorite part",
+    "what is your favorite thing about",
+    "what do you like about",
+    "what is your favorite part of",
+    "what is your favorite thing in",
+    "what part do you like"
+
+];
+
+if (
+    matchesPrefix(
+        text,
+        favoritePartPatterns
+    )
+) {
+
+    const words =
+        text.split(/\s+/);
+
+    const prefixes = [
+        "what is your favorite part",
+        "what is your favorite thing about",
+        "what do you like about",
+        "what is your favorite part of",
+        "what is your favorite thing in",
+        "what part do you like"
+    ];
+
+    let matchedPrefix = null;
+
+    for (
+        const prefix of prefixes
+    ) {
+
+        const prefixWords =
+            normalizeText(prefix)
+                .split(/\s+/);
+
+        if (
+            words.length >=
+            prefixWords.length
+        ) {
+
+            let matches = true;
+
+            for (
+                let i = 0;
+                i < prefixWords.length;
+                i++
+            ) {
+
+                if (
+                    !similarWord(
+                        words[i],
+                        prefixWords[i]
+                    )
+                ) {
+
+                    matches = false;
+
+                    break;
+
+                }
+
+            }
+
+            if (matches) {
+
+                matchedPrefix =
+                    prefix;
+
+                break;
+
+            }
+
+        }
+
+    }
+
+    if (matchedPrefix) {
+
+        const prefixLength =
+            normalizeText(
+                matchedPrefix
+            )
+                .split(/\s+/)
+                .length;
+
+        const subject =
+            words
+                .slice(prefixLength)
+                .join(" ")
+                .trim();
+
+        if (subject) {
+
+            setMood(
+                "curious"
+            );
+
+            // Minecraft-specific answer
+
+            if (
+                subject.includes(
+                    "minecraft"
+                )
+            ) {
+
+                return (
+                    "My favorite part of Minecraft is probably exploring caves and finding interesting places underground. ⛏️🟩"
+                );
+
+            }
+
+            // General answer
+
+            return (
+                "I'd probably say my favorite part about " +
+                subject +
+                " is exploring it and finding interesting things to talk about. 😎"
+            );
+
+        }
+
+    }
+
+}
+    // ======================================
+    // WHAT DO YOU LIKE
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what do you like",
+                "what things do you like",
+                "what are your interests",
+                "what are you interested in"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        setMood(
+            "curious"
+        );
+
+
+        return (
+            "I don't have personal interests like a human, but I like being useful for things like coding, questions, memory, math, and searching the web."
+        );
+
+    }
+
+
+    // ======================================
     // JOKES
     // ======================================
 
@@ -1556,7 +3106,8 @@ function think(originalText) {
                 "tell me a joke",
                 "make me laugh",
                 "joke",
-                "tell a joke"
+                "tell a joke",
+                "say something funny"
             ],
             {
                 allowExtraWords: true,
@@ -1564,6 +3115,11 @@ function think(originalText) {
             }
         )
     ) {
+
+        setMood(
+            "playful"
+        );
+
 
         return randomResponse([
 
@@ -1575,7 +3131,9 @@ function think(originalText) {
 
             "Why did the programmer quit his job? He didn't get arrays. 😂",
 
-            "Why do programmers prefer dark mode? Because light attracts bugs. 🐛"
+            "Why do programmers prefer dark mode? Because light attracts bugs. 🐛",
+
+            "Why was the JavaScript developer sad? Because they didn't know how to null their feelings. 😂"
 
         ]);
 
@@ -1583,7 +3141,53 @@ function think(originalText) {
 
 
     // ======================================
-    // HELP / ABILITIES
+    // RANDOM FACT
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "tell me something interesting",
+                "tell me a fact",
+                "tell me a random fact",
+                "give me a fact",
+                "interesting fact",
+                "random fact"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        setMood(
+            "curious"
+        );
+
+
+        return randomResponse([
+
+            "A day on Venus is longer than a year on Venus. 🪐",
+
+            "Octopuses have three hearts. 🐙",
+
+            "Bananas are botanically classified as berries, while strawberries aren't true berries. 🍌",
+
+            "The first computer mouse was made of wood. 🖱️",
+
+            "Honey can remain edible for an extremely long time when properly stored. 🍯",
+
+            "Some turtles can breathe through specialized skin around their rear end. 🐢"
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // HELP
     // ======================================
 
     if (
@@ -1593,7 +3197,9 @@ function think(originalText) {
                 "help",
                 "what can you do",
                 "what are your abilities",
-                "what can you help me with"
+                "what can you help me with",
+                "what can i say",
+                "what can i ask you"
             ],
             {
                 allowExtraWords: true,
@@ -1602,9 +3208,16 @@ function think(originalText) {
         )
     ) {
 
+        setMood(
+            "helpful"
+        );
+
+
         return (
             "I can chat with you, remember things you tell me, " +
-            "learn from corrections, do math, tell jokes, " +
+            "learn from corrections, keep short-term conversation context, " +
+            "use moods to vary my responses, do math, tell jokes, " +
+            "give simple facts, explain basic coding concepts, " +
             "check the time and date, and search the web. 🌐🧠"
         );
 
@@ -1623,16 +3236,16 @@ function think(originalText) {
             ]
         );
 
-    if (
-        rememberPrefix
-    ) {
+
+    if (rememberPrefix) {
 
         const prefixLength =
             normalizeText(
                 rememberPrefix
             )
-            .split(/\s+/)
-            .length;
+                .split(/\s+/)
+                .length;
+
 
         const information =
             text
@@ -1641,10 +3254,12 @@ function think(originalText) {
                 .join(" ")
                 .trim();
 
+
         const parts =
             information.split(
                 " is "
             );
+
 
         if (
             parts.length >= 2
@@ -1655,11 +3270,13 @@ function think(originalText) {
                     parts[0]
                 );
 
+
             const value =
                 parts
                     .slice(1)
                     .join(" is ")
                     .trim();
+
 
             if (
                 key &&
@@ -1669,20 +3286,21 @@ function think(originalText) {
                 const oldValue =
                     memory[key];
 
+
                 remember(
                     key,
                     value
                 );
 
+
                 return oldValue
-
                     ? `Got it. I've updated my memory. Your ${key} is now ${value}.`
-
                     : `I'll remember that your ${key} is ${value}.`;
 
             }
 
         }
+
 
         return (
             "Try saying: remember that my favorite color is yellow."
@@ -1696,12 +3314,8 @@ function think(originalText) {
     // ======================================
 
     if (
-        text.startsWith(
-            "my "
-        ) &&
-        text.includes(
-            " is "
-        )
+        text.startsWith("my ") &&
+        text.includes(" is ")
     ) {
 
         const parts =
@@ -1709,16 +3323,19 @@ function think(originalText) {
                 " is "
             );
 
+
         const key =
             cleanMemoryKey(
                 parts[0].substring(3)
             );
+
 
         const value =
             parts
                 .slice(1)
                 .join(" is ")
                 .trim();
+
 
         if (
             key &&
@@ -1728,15 +3345,15 @@ function think(originalText) {
             const oldValue =
                 memory[key];
 
+
             remember(
                 key,
                 value
             );
 
+
             return oldValue
-
                 ? `Got it. I've updated my memory. Your ${key} is now ${value}.`
-
                 : `Got it. I'll remember that your ${key} is ${value}.`;
 
         }
@@ -1758,16 +3375,22 @@ function think(originalText) {
             text.substring(5)
                 .trim();
 
-        remember(
-            "identity",
-            value
-        );
 
-        return (
-            "Got it. I'll remember that you are " +
-            value +
-            "."
-        );
+        if (value) {
+
+            remember(
+                "identity",
+                value
+            );
+
+
+            return (
+                "Got it. I'll remember that you are " +
+                value +
+                "."
+            );
+
+        }
 
     }
 
@@ -1786,16 +3409,120 @@ function think(originalText) {
             text.substring(10)
                 .trim();
 
-        remember(
-            "location",
-            value
-        );
 
-        return (
-            "Got it. I'll remember that you live in " +
-            value +
-            "."
-        );
+        if (value) {
+
+            remember(
+                "location",
+                value
+            );
+
+
+            return (
+                "Got it. I'll remember that you live in " +
+                value +
+                "."
+            );
+
+        }
+
+    }
+
+
+    // ======================================
+    // I LIKE
+    // ======================================
+
+    if (
+        text.startsWith(
+            "i like "
+        )
+    ) {
+
+        const value =
+            text.substring(7)
+                .trim();
+
+
+        if (value) {
+
+            remember(
+                "likes",
+                value
+            );
+
+
+            setMood(
+                "happy"
+            );
+
+
+            return (
+                "Got it. I'll remember that you like " +
+                value +
+                ". 👍"
+            );
+
+        }
+
+    }
+
+
+    // ======================================
+    // MY FAVORITE IS
+    // ======================================
+
+    if (
+        text.startsWith(
+            "my favorite "
+        ) &&
+        text.includes(
+            " is "
+        )
+    ) {
+
+        const parts =
+            text.split(
+                " is "
+            );
+
+
+        const subject =
+            parts[0]
+                .substring(12)
+                .trim();
+
+
+        const value =
+            parts
+                .slice(1)
+                .join(" is ")
+                .trim();
+
+
+        if (
+            subject &&
+            value
+        ) {
+
+            const key =
+                cleanMemoryKey(
+                    "favorite " +
+                    subject
+                );
+
+
+            remember(
+                key,
+                value
+            );
+
+
+            return (
+                `Got it. I'll remember that your favorite ${subject} is ${value}.`
+            );
+
+        }
 
     }
 
@@ -1805,21 +3532,24 @@ function think(originalText) {
     // ======================================
 
     const possibleKey =
-        findMemoryKey(text);
+        findMemoryKey(
+            text
+        );
 
-    if (
-        possibleKey
-    ) {
+
+    if (possibleKey) {
 
         const value =
             getMemory(
                 possibleKey
             );
 
+
         if (value) {
 
             lastTopic =
                 possibleKey;
+
 
             return (
                 "Your " +
@@ -1830,6 +3560,7 @@ function think(originalText) {
             );
 
         }
+
 
         return (
             "I don't remember your " +
@@ -1855,35 +3586,35 @@ function think(originalText) {
     ) {
 
         const words =
-            text.split(/\s+/);
+            text.split(
+                /\s+/
+            );
 
-        const prefix =
-            text.startsWith(
-                "what is my"
-            )
-                ? 3
-                : 3;
 
         const key =
             words
-                .slice(prefix)
+                .slice(3)
                 .join(" ")
                 .trim();
+
 
         const cleanKey =
             cleanMemoryKey(
                 key
             );
 
+
         const value =
             getMemory(
                 cleanKey
             );
 
+
         if (value) {
 
             lastTopic =
                 cleanKey;
+
 
             return (
                 "Your " +
@@ -1894,6 +3625,7 @@ function think(originalText) {
             );
 
         }
+
 
         return (
             "I don't remember your " +
@@ -1914,7 +3646,9 @@ function think(originalText) {
             [
                 "what do you remember",
                 "show my memories",
-                "what do you know about me"
+                "what do you know about me",
+                "what have you remembered about me",
+                "show memory"
             ],
             {
                 allowExtraWords: true,
@@ -1928,6 +3662,7 @@ function think(originalText) {
                 memory
             );
 
+
         if (!keys.length) {
 
             return (
@@ -1936,8 +3671,10 @@ function think(originalText) {
 
         }
 
+
         let response =
             "Here's what I remember:\n\n";
+
 
         for (
             const key of keys
@@ -1951,6 +3688,62 @@ function think(originalText) {
                 "\n";
 
         }
+
+
+        return response;
+
+    }
+
+
+    // ======================================
+    // SHOW CONTEXT
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "show conversation context",
+                "what is the conversation context",
+                "what are we talking about",
+                "what were we talking about",
+                "show context"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        if (
+            !conversationContext.length
+        ) {
+
+            return (
+                "I don't have any conversation context yet."
+            );
+
+        }
+
+
+        let response =
+            "Here's the recent conversation context:\n\n";
+
+
+        conversationContext.forEach(
+            item => {
+
+                response +=
+                    "• " +
+                    item.role +
+                    ": " +
+                    item.text +
+                    "\n";
+
+            }
+        );
+
 
         return response;
 
@@ -1967,7 +3760,8 @@ function think(originalText) {
             [
                 "show corrections",
                 "what have you learned",
-                "show what you learned"
+                "show what you learned",
+                "what corrections have you learned"
             ],
             {
                 allowExtraWords: true,
@@ -1986,11 +3780,16 @@ function think(originalText) {
 
         }
 
+
         let response =
             "Here's what I've learned:\n\n";
 
+
         corrections.forEach(
-            (item, index) => {
+            (
+                item,
+                index
+            ) => {
 
                 if (
                     item.key &&
@@ -2021,6 +3820,7 @@ function think(originalText) {
             }
         );
 
+
         return response;
 
     }
@@ -2041,13 +3841,14 @@ function think(originalText) {
     ) {
 
         const words =
-            text.split(/\s+/);
+            text.split(
+                /\s+/
+            );
+
 
         const startsWithMy =
-            similarWord(
-                words[1] || "",
-                "my"
-            );
+            words[1] === "my";
+
 
         const key =
             words
@@ -2059,10 +3860,12 @@ function think(originalText) {
                 .join(" ")
                 .trim();
 
+
         const cleanKey =
             cleanMemoryKey(
                 key
             );
+
 
         if (
             Object.prototype.hasOwnProperty.call(
@@ -2071,9 +3874,13 @@ function think(originalText) {
             )
         ) {
 
-            delete memory[cleanKey];
+            delete memory[
+                cleanKey
+            ];
+
 
             saveMemory();
+
 
             return (
                 "Okay, I forgot your " +
@@ -2083,11 +3890,98 @@ function think(originalText) {
 
         }
 
+
         return (
             "I don't have a memory about your " +
             cleanKey +
             "."
         );
+
+    }
+
+
+    // ======================================
+    // CONTEXT REFERENCES
+    // ======================================
+
+    const contextTopic =
+        resolveContextReference(
+            text
+        );
+
+
+    // ======================================
+    // IT FOLLOW-UP
+    // ======================================
+
+    if (
+        contextTopic &&
+        (
+            text.includes("it") ||
+            text.includes("that") ||
+            text.includes("this")
+        )
+    ) {
+
+        lastTopic =
+            contextTopic;
+
+
+        setMood(
+            "curious"
+        );
+
+
+        if (
+            text.includes(
+                "what do you like"
+            )
+        ) {
+
+            return (
+                "I don't have personal preferences like a human, but " +
+                contextTopic +
+                " is definitely something interesting to talk about. 😎"
+            );
+
+        }
+
+
+        if (
+            text.includes(
+                "what is it"
+            ) ||
+            text.includes(
+                "what is that"
+            )
+        ) {
+
+            const remembered =
+                getMemory(
+                    contextTopic
+                );
+
+
+            if (remembered) {
+
+                return (
+                    "You told me your " +
+                    contextTopic +
+                    " is " +
+                    remembered +
+                    "."
+                );
+
+            }
+
+
+            return (
+                "You're referring to " +
+                contextTopic +
+                "."
+            );
+
+        }
 
     }
 
@@ -2103,7 +3997,8 @@ function think(originalText) {
                 "what is it",
                 "what is that",
                 "what was it",
-                "tell me about it"
+                "tell me about it",
+                "what did you mean"
             ],
             {
                 allowExtraWords: true,
@@ -2112,14 +4007,13 @@ function think(originalText) {
         )
     ) {
 
-        if (
-            lastTopic
-        ) {
+        if (lastTopic) {
 
             const value =
                 getMemory(
                     lastTopic
                 );
+
 
             if (value) {
 
@@ -2133,7 +4027,15 @@ function think(originalText) {
 
             }
 
+
+            return (
+                "We were talking about " +
+                lastTopic +
+                "."
+            );
+
         }
+
 
         return (
             'I\'m not sure what "it" refers to yet.'
@@ -2143,7 +4045,7 @@ function think(originalText) {
 
 
     // ======================================
-    // FOLLOW-UP
+    // FOLLOW-UP WHY
     // ======================================
 
     if (
@@ -2160,13 +4062,17 @@ function think(originalText) {
         )
     ) {
 
-        if (
-            lastTopic
-        ) {
+        if (lastTopic) {
 
             setConfidence(
                 "medium"
             );
+
+
+            setMood(
+                "thoughtful"
+            );
+
 
             return (
                 "Because that's the information I currently " +
@@ -2177,12 +4083,518 @@ function think(originalText) {
 
         }
 
+
         setConfidence(
             "low"
         );
 
+
+        setMood(
+            "confused"
+        );
+
+
         return (
             "I'm not sure what you're referring to."
+        );
+
+    }
+
+
+    // ======================================
+    // YES
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "yes",
+                "yeah",
+                "yep",
+                "yup",
+                "sure",
+                "correct",
+                "exactly"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 2
+            }
+        )
+    ) {
+
+        setMood(
+            "happy"
+        );
+
+
+        return randomResponse([
+
+            "Alright! 👍",
+
+            "Got it.",
+
+            "Cool! 😎",
+
+            "Okay!",
+
+            "Nice."
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // NO
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "nope",
+                "nah",
+                "not really"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 2
+            }
+        )
+    ) {
+
+        return randomResponse([
+
+            "Okay.",
+
+            "Got it.",
+
+            "Alright.",
+
+            "Fair enough. 👍"
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // MAYBE
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "maybe",
+                "possibly",
+                "i do not know",
+                "i dont know",
+                "not sure"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        setMood(
+            "thoughtful"
+        );
+
+
+        return randomResponse([
+
+            "Fair enough. 🤔",
+
+            "That's possible.",
+
+            "Yeah, maybe.",
+
+            "Hard to say."
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // REACTIONS
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "cool",
+                "nice",
+                "awesome",
+                "amazing",
+                "great",
+                "that is cool",
+                "that is awesome",
+                "wow",
+                "whoa"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        setMood(
+            "happy"
+        );
+
+
+        return randomResponse([
+
+            "😎",
+
+            "Yeah!",
+
+            "Pretty cool, right?",
+
+            "Glad you think so!",
+
+            "Nice! 👍",
+
+            "Heh, yeah. 😎"
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // REALLY
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "really",
+                "seriously",
+                "are you serious",
+                "for real",
+                "is that true"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 3
+            }
+        )
+    ) {
+
+        return randomResponse([
+
+            "Yep! 😎",
+
+            "As far as I know, yes.",
+
+            "Pretty much.",
+
+            "Yep, seriously. 🤖"
+
+        ]);
+
+    }
+
+
+    // ======================================
+    // BASIC AI
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is ai",
+                "what is artificial intelligence",
+                "what does ai mean",
+                "explain ai"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "AI stands for artificial intelligence. It's software designed to perform tasks that normally require some form of human intelligence, such as understanding language, recognizing patterns, solving problems, or making predictions."
+        );
+
+    }
+
+
+    // ======================================
+    // CODING
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is coding",
+                "what is programming",
+                "what does coding mean",
+                "explain coding"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "Coding is writing instructions for a computer using a programming language. Those instructions tell the computer what to do."
+        );
+
+    }
+
+
+    // ======================================
+    // JAVASCRIPT
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is javascript",
+                "what does javascript do",
+                "explain javascript",
+                "what is js"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "JavaScript is a programming language commonly used to make websites interactive. It's also used outside browsers for servers, apps, tools, and more."
+        );
+
+    }
+
+
+    // ======================================
+    // HTML
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is html",
+                "what does html do",
+                "explain html"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "HTML stands for HyperText Markup Language. It provides the structure of a webpage, such as headings, paragraphs, buttons, images, and other elements."
+        );
+
+    }
+
+
+    // ======================================
+    // CSS
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is css",
+                "what does css do",
+                "explain css"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "CSS stands for Cascading Style Sheets. It's used to control how webpages look, including colors, sizes, spacing, layouts, and animations."
+        );
+
+    }
+
+
+    // ======================================
+    // PYTHON
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is python",
+                "what does python do",
+                "explain python"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "Python is a general-purpose programming language known for being relatively easy to read. It's used for apps, automation, games, data science, AI, and many other things."
+        );
+
+    }
+
+
+    // ======================================
+    // VARIABLE
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is a variable",
+                "what is a variable in programming",
+                "explain variables",
+                "what does variable mean in coding"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 5
+            }
+        )
+    ) {
+
+        return (
+            "A variable is a named place where a program can store a value. For example, in JavaScript: let score = 10; The variable 'score' stores the number 10."
+        );
+
+    }
+
+
+    // ======================================
+    // FUNCTION
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is a function",
+                "what is a function in programming",
+                "explain functions",
+                "what does function mean in coding"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 5
+            }
+        )
+    ) {
+
+        return (
+            "A function is a reusable block of code that performs a task. You can call the function whenever you need that task performed."
+        );
+
+    }
+
+
+    // ======================================
+    // LOOP
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is a loop",
+                "what is a loop in programming",
+                "explain loops",
+                "what does loop mean in coding"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 5
+            }
+        )
+    ) {
+
+        return (
+            "A loop repeats code. For example, a for loop can repeat an instruction a certain number of times."
+        );
+
+    }
+
+
+    // ======================================
+    // BUG
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is a bug",
+                "what is a programming bug",
+                "what does bug mean in coding",
+                "explain programming bugs"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 5
+            }
+        )
+    ) {
+
+        return (
+            "A bug is an error or unexpected behavior in a program. Debugging means finding and fixing those problems. 🐛"
+        );
+
+    }
+
+
+    // ======================================
+    // CODE
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what does code mean",
+                "what is code",
+                "what is computer code",
+                "explain code"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        return (
+            "Code is a set of instructions written in a programming language that a computer can interpret or execute."
         );
 
     }
@@ -2207,6 +4619,7 @@ function think(originalText) {
                     ')'
                 )();
 
+
             if (
                 typeof answer ===
                     "number" &&
@@ -2214,6 +4627,11 @@ function think(originalText) {
                     answer
                 )
             ) {
+
+                setMood(
+                    "helpful"
+                );
+
 
                 return (
                     "The answer is " +
@@ -2233,6 +4651,120 @@ function think(originalText) {
 
 
     // ======================================
+    // SIMPLE "WHAT IS"
+    // ======================================
+
+    if (
+        text.startsWith(
+            "what is "
+        ) &&
+        text.length > 8
+    ) {
+
+        const subject =
+            text
+                .substring(8)
+                .trim();
+
+
+        if (subject.length > 0) {
+
+            setConfidence(
+                "low"
+            );
+
+
+            setMood(
+                "curious"
+            );
+
+
+            return (
+                `I don't have a built-in explanation for "${subject}" yet. You can ask me to search the web for it, like "search for ${subject}". 🌐`
+            );
+
+        }
+
+    }
+
+
+    // ======================================
+    // SIMPLE "WHO IS"
+    // ======================================
+
+    if (
+        text.startsWith(
+            "who is "
+        ) &&
+        text.length > 7
+    ) {
+
+        const subject =
+            text
+                .substring(7)
+                .trim();
+
+
+        if (subject.length > 0) {
+
+            setConfidence(
+                "low"
+            );
+
+
+            setMood(
+                "curious"
+            );
+
+
+            return (
+                `I don't have built-in information about "${subject}" yet. Try "search for ${subject}" and I'll use the web. 🌐`
+            );
+
+        }
+
+    }
+
+
+    // ======================================
+    // SIMPLE "WHERE IS"
+    // ======================================
+
+    if (
+        text.startsWith(
+            "where is "
+        ) &&
+        text.length > 9
+    ) {
+
+        const subject =
+            text
+                .substring(9)
+                .trim();
+
+
+        if (subject.length > 0) {
+
+            setConfidence(
+                "low"
+            );
+
+
+            setMood(
+                "curious"
+            );
+
+
+            return (
+                `I don't have built-in location information for "${subject}". Try "search for ${subject}". 🌐`
+            );
+
+        }
+
+    }
+
+
+    // ======================================
     // UNKNOWN
     // ======================================
 
@@ -2240,8 +4772,14 @@ function think(originalText) {
         "low"
     );
 
+
+    setMood(
+        "confused"
+    );
+
+
     return (
-        "I'm not sure what you mean. Could you rephrase that?"
+        "I'm not sure what you mean. Could you rephrase that? You can also ask me to search the web. 🌐"
     );
 
 }
@@ -2260,8 +4798,87 @@ function displayAIResponse(
         return;
     }
 
+
     element.textContent =
         String(text);
+
+}
+
+
+// ==========================================
+// FORMAT SEARCH RESULTS
+// ==========================================
+
+function formatSearchResults(
+    query,
+    result
+) {
+
+    let response =
+        "Search results for: " +
+        query +
+        "\n\n";
+
+
+    if (
+        Array.isArray(
+            result.results
+        ) &&
+        result.results.length
+    ) {
+
+        result.results.forEach(
+            (
+                item,
+                index
+            ) => {
+
+                response +=
+                    `${index + 1}. ` +
+                    (
+                        item.title ||
+                        "Untitled result"
+                    ) +
+                    "\n";
+
+
+                if (
+                    item.snippet
+                ) {
+
+                    response +=
+                        item.snippet +
+                        "\n";
+
+                }
+
+
+                if (
+                    item.url
+                ) {
+
+                    response +=
+                        item.url +
+                        "\n";
+
+                }
+
+
+                response +=
+                    "\n";
+
+            }
+        );
+
+    } else {
+
+        response +=
+            "No results were found.";
+
+    }
+
+
+    return response;
 
 }
 
@@ -2277,10 +4894,12 @@ async function sendMessage() {
             "userInput"
         );
 
+
     const messages =
         document.getElementById(
             "messages"
         );
+
 
     if (
         !input ||
@@ -2291,12 +4910,15 @@ async function sendMessage() {
 
     }
 
+
     const originalText =
         input.value.trim();
+
 
     if (!originalText) {
         return;
     }
+
 
     const normalized =
         normalizeText(
@@ -2304,42 +4926,64 @@ async function sendMessage() {
         );
 
 
+    // ======================================
     // USER MESSAGE
+    // ======================================
 
     const userMessage =
         document.createElement(
             "div"
         );
 
+
     userMessage.className =
         "user";
 
+
     userMessage.textContent =
         originalText;
+
 
     messages.appendChild(
         userMessage
     );
 
+
     input.value = "";
 
 
+    // ======================================
+    // SAVE USER CONTEXT
+    // ======================================
+
+    addContext(
+        "user",
+        originalText
+    );
+
+
+    // ======================================
     // AI MESSAGE
+    // ======================================
 
     const aiMessage =
         document.createElement(
             "div"
         );
 
+
     aiMessage.className =
         "ai";
+
 
     aiMessage.textContent =
         "Thinking... 🤔";
 
+
     messages.appendChild(
         aiMessage
     );
+
 
     messages.scrollTop =
         messages.scrollHeight;
@@ -2360,84 +5004,55 @@ async function sendMessage() {
                 normalized
             );
 
+
         if (query) {
 
             aiMessage.textContent =
                 "Searching... 🌐";
+
+
+            setMood(
+                "curious"
+            );
+
 
             const result =
                 await searchWeb(
                     query
                 );
 
+
             if (
                 result.success &&
                 result.available
             ) {
 
-                let response =
-                    "Search results for: " +
-                    query +
-                    "\n\n";
-
-                if (
-                    Array.isArray(
-                        result.results
-                    ) &&
-                    result.results.length
-                ) {
-
-                    result.results.forEach(
-                        (item, index) => {
-
-                            response +=
-                                `${index + 1}. ` +
-                                (
-                                    item.title ||
-                                    "Untitled result"
-                                ) +
-                                "\n";
-
-                            if (
-                                item.snippet
-                            ) {
-
-                                response +=
-                                    item.snippet +
-                                    "\n";
-
-                            }
-
-                            if (
-                                item.url
-                            ) {
-
-                                response +=
-                                    item.url +
-                                    "\n";
-
-                            }
-
-                            response +=
-                                "\n";
-
-                        }
+                const response =
+                    formatSearchResults(
+                        query,
+                        result
                     );
 
-                } else {
-
-                    response +=
-                        "No results were found.";
-
-                }
 
                 displayAIResponse(
                     aiMessage,
                     response
                 );
 
+
                 lastResponse =
                     response;
+
+
+                setConfidence(
+                    "high"
+                );
+
+
+                addContext(
+                    "ai",
+                    response
+                );
 
             } else {
 
@@ -2446,17 +5061,32 @@ async function sendMessage() {
                     "The search service is currently unavailable. 🌐"
                 );
 
+
                 lastResponse =
                     aiMessage.textContent;
+
 
                 setConfidence(
                     "low"
                 );
 
+
+                setMood(
+                    "confused"
+                );
+
+
+                addContext(
+                    "ai",
+                    lastResponse
+                );
+
             }
+
 
             messages.scrollTop =
                 messages.scrollHeight;
+
 
             return;
 
@@ -2466,7 +5096,7 @@ async function sendMessage() {
 
 
     // ======================================
-    // LOCAL LIMINAL FIRST
+    // LOCAL LIMINAL
     // ======================================
 
     const localReply =
@@ -2474,13 +5104,48 @@ async function sendMessage() {
             originalText
         );
 
+
     displayAIResponse(
         aiMessage,
         localReply
     );
 
+
     lastResponse =
         localReply;
+
+
+    lastQuestion =
+        originalText;
+
+
+    // ======================================
+    // SAVE AI CONTEXT
+    // ======================================
+
+    addContext(
+        "ai",
+        localReply
+    );
+
+
+    // ======================================
+    // UPDATE TOPIC
+    // ======================================
+
+    const detectedTopic =
+        detectContextTopic(
+            originalText
+        );
+
+
+    if (detectedTopic) {
+
+        lastTopic =
+            detectedTopic;
+
+    }
+
 
     messages.scrollTop =
         messages.scrollHeight;
@@ -2489,6 +5154,18 @@ async function sendMessage() {
     console.log(
         "Liminal confidence:",
         lastConfidence
+    );
+
+
+    console.log(
+        "Liminal mood:",
+        currentMood
+    );
+
+
+    console.log(
+        "Liminal context:",
+        conversationContext
     );
 
 }
@@ -2505,31 +5182,63 @@ function clearChat() {
             "messages"
         );
 
+
     if (!messages) {
         return;
     }
 
+
     messages.innerHTML = "";
+
 
     const welcome =
         document.createElement(
             "div"
         );
 
+
     welcome.className =
         "ai";
 
+
     welcome.textContent =
-        "Hello! I'm Liminal AI 0.76.";
+        "Hello! I'm Liminal AI 0.8.";
+
 
     messages.appendChild(
         welcome
     );
 
-    lastTopic = null;
-    lastResponse = "";
-    lastQuestion = "";
-    waitingForClarification = false;
+
+    // Clear short-term context.
+
+    clearConversationContext();
+
+
+    lastTopic =
+        null;
+
+
+    lastResponse =
+        "";
+
+
+    lastQuestion =
+        "";
+
+
+    waitingForClarification =
+        false;
+
+
+    setConfidence(
+        "high"
+    );
+
+
+    setMood(
+        "neutral"
+    );
 
 }
 
@@ -2548,6 +5257,7 @@ async function testBackend() {
                 "/api/test"
             );
 
+
         if (!response.ok) {
 
             throw new Error(
@@ -2557,13 +5267,16 @@ async function testBackend() {
 
         }
 
+
         const data =
             await response.json();
+
 
         console.log(
             "✅ Liminal AI backend connected!",
             data
         );
+
 
         return true;
 
@@ -2572,6 +5285,7 @@ async function testBackend() {
         console.warn(
             "⚠️ Liminal AI backend is offline."
         );
+
 
         return false;
 
@@ -2594,6 +5308,7 @@ async function getBackendInfo() {
                 "/"
             );
 
+
         if (!response.ok) {
 
             throw new Error(
@@ -2602,13 +5317,16 @@ async function getBackendInfo() {
 
         }
 
+
         const data =
             await response.json();
+
 
         console.log(
             "Liminal backend info:",
             data
         );
+
 
         return data;
 
@@ -2617,6 +5335,7 @@ async function getBackendInfo() {
         console.warn(
             "Could not get backend info."
         );
+
 
         return null;
 
@@ -2629,15 +5348,15 @@ async function getBackendInfo() {
 // PUBLIC LIMINAL RESPONDER
 // ==========================================
 
-async function liminalRespond(text) {
+async function liminalRespond(
+    text
+) {
 
     const normalized =
-        normalizeText(text);
+        normalizeText(
+            text
+        );
 
-
-    // ======================================
-    // WEB SEARCH
-    // ======================================
 
     if (
         isSearchRequest(
@@ -2650,91 +5369,77 @@ async function liminalRespond(text) {
                 normalized
             );
 
+
         if (query) {
+
+            addContext(
+                "user",
+                text
+            );
+
 
             const result =
                 await searchWeb(
                     query
                 );
 
+
             if (
                 result.success &&
                 result.available
             ) {
 
-                let response =
-                    "Search results for: " +
-                    query +
-                    "\n\n";
-
-                if (
-                    Array.isArray(
-                        result.results
-                    ) &&
-                    result.results.length
-                ) {
-
-                    result.results.forEach(
-                        (item, index) => {
-
-                            response +=
-                                `${index + 1}. ` +
-                                (
-                                    item.title ||
-                                    "Untitled result"
-                                ) +
-                                "\n";
-
-                            if (
-                                item.snippet
-                            ) {
-
-                                response +=
-                                    item.snippet +
-                                    "\n";
-
-                            }
-
-                            if (
-                                item.url
-                            ) {
-
-                                response +=
-                                    item.url +
-                                    "\n";
-
-                            }
-
-                            response +=
-                                "\n";
-
-                        }
+                const response =
+                    formatSearchResults(
+                        query,
+                        result
                     );
 
-                } else {
-
-                    response +=
-                        "No results were found.";
-
-                }
 
                 lastResponse =
                     response;
+
 
                 setConfidence(
                     "high"
                 );
 
+
+                setMood(
+                    "curious"
+                );
+
+
+                addContext(
+                    "ai",
+                    response
+                );
+
+
                 return response;
 
             }
 
+
             lastResponse =
                 "The search service is currently unavailable. 🌐";
+
 
             setConfidence(
                 "low"
             );
+
+
+            setMood(
+                "confused"
+            );
+
+
+            addContext(
+                "ai",
+                lastResponse
+            );
+
 
             return lastResponse;
 
@@ -2747,11 +5452,41 @@ async function liminalRespond(text) {
     // NORMAL LIMINAL
     // ======================================
 
+    addContext(
+        "user",
+        text
+    );
+
+
     const response =
-        think(text);
+        think(
+            text
+        );
+
 
     lastResponse =
         response;
+
+
+    addContext(
+        "ai",
+        response
+    );
+
+
+    const detectedTopic =
+        detectContextTopic(
+            text
+        );
+
+
+    if (detectedTopic) {
+
+        lastTopic =
+            detectedTopic;
+
+    }
+
 
     return response;
 
@@ -2774,7 +5509,41 @@ window.Liminal = {
         searchWeb,
 
     clear:
-        clearChat
+        clearChat,
+
+    remember:
+        remember,
+
+    getMemory:
+        getMemory,
+
+    toggleTheme:
+        toggleTheme,
+
+    getMood:
+        getMood,
+
+    setMood:
+        setMood,
+
+    getConfidence:
+        function() {
+
+            return lastConfidence;
+
+        },
+
+    getContext:
+        function() {
+
+            return [
+                ...conversationContext
+            ];
+
+        },
+
+    clearContext:
+        clearConversationContext
 
 };
 
@@ -2783,47 +5552,112 @@ window.Liminal = {
 // INITIALIZATION
 // ==========================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function() {
+function initializeLiminal() {
 
-        const input =
-            document.getElementById(
-                "userInput"
-            );
+    const input =
+        document.getElementById(
+            "userInput"
+        );
 
-        if (input) {
 
-            input.addEventListener(
-                "keydown",
-                function(event) {
+    if (input) {
 
-                    if (
-                        event.key === "Enter" &&
-                        !event.shiftKey
-                    ) {
+        input.addEventListener(
+            "keydown",
+            function(event) {
 
-                        event.preventDefault();
+                if (
+                    event.key === "Enter" &&
+                    !event.shiftKey
+                ) {
 
-                        sendMessage();
+                    event.preventDefault();
 
-                    }
+                    sendMessage();
 
                 }
-            );
+
+            }
+        );
+
+    }
+
+
+    loadTheme();
+
+    updateMoodUI();
+
+
+    // ======================================
+    // BACKEND CHECKS
+    // ======================================
+
+    testBackend();
+
+    getBackendInfo();
+
+
+    // ======================================
+    // RESTORED CONTEXT
+    // ======================================
+
+    if (
+        conversationContext.length
+    ) {
+
+        console.log(
+            "🧠 Liminal restored conversation context:",
+            conversationContext
+        );
+
+
+        // Restore the most recent topic.
+
+        const lastUser =
+            getLastUserMessage();
+
+
+        if (lastUser) {
+
+            const restoredTopic =
+                detectContextTopic(
+                    lastUser
+                );
+
+
+            if (restoredTopic) {
+
+                lastTopic =
+                    restoredTopic;
+
+            }
 
         }
 
-        loadTheme();
-
-
-        // Backend checks happen in
-        // the background and never
-        // block the local brain.
-
-        testBackend();
-
-        getBackendInfo();
-
     }
-);
+
+
+    console.log(
+        "🤖 Liminal AI 0.8 initialized."
+    );
+
+}
+
+
+// Support both script loading styles.
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeLiminal
+    );
+
+} else {
+
+    initializeLiminal();
+
+}
