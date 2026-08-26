@@ -18,9 +18,16 @@
 // - Existing math preserved
 // - Existing confidence preserved
 // - Existing personality preserved
-// - Fixed false correction detection
-// - Fixed duplicate context system
-// - Fixed mood initialization
+//
+// FIXES
+// - Fixed favorite-part routing
+// - Fixed "what is your favorite part in X"
+// - Fixed "what do you like about X"
+// - Fixed generic "what is" stealing specific questions
+// - Improved topic extraction
+// - Improved context references
+// - Improved memory question routing
+// - Prevented generic fallback from answering known Liminal questions
 // ==========================================
 
 
@@ -36,17 +43,53 @@ const BACKEND_URL =
 // MEMORY
 // ==========================================
 
-let memory =
-    JSON.parse(
-        localStorage.getItem("liminalMemory") || "{}"
+let memory;
+
+try {
+
+    memory =
+        JSON.parse(
+            localStorage.getItem("liminalMemory") || "{}"
+        );
+
+    if (
+        typeof memory !== "object" ||
+        memory === null ||
+        Array.isArray(memory)
+    ) {
+
+        memory = {};
+
+    }
+
+} catch (error) {
+
+    console.warn(
+        "Liminal memory was corrupted. Resetting memory."
     );
+
+    memory = {};
+
+}
+
 
 function saveMemory() {
 
-    localStorage.setItem(
-        "liminalMemory",
-        JSON.stringify(memory)
-    );
+    try {
+
+        localStorage.setItem(
+            "liminalMemory",
+            JSON.stringify(memory)
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Could not save Liminal memory:",
+            error
+        );
+
+    }
 
 }
 
@@ -55,17 +98,49 @@ function saveMemory() {
 // CORRECTIONS
 // ==========================================
 
-let corrections =
-    JSON.parse(
-        localStorage.getItem("liminalCorrections") || "[]"
-    );
+let corrections;
+
+try {
+
+    corrections =
+        JSON.parse(
+            localStorage.getItem(
+                "liminalCorrections"
+            ) || "[]"
+        );
+
+    if (
+        !Array.isArray(corrections)
+    ) {
+
+        corrections = [];
+
+    }
+
+} catch (error) {
+
+    corrections = [];
+
+}
+
 
 function saveCorrections() {
 
-    localStorage.setItem(
-        "liminalCorrections",
-        JSON.stringify(corrections)
-    );
+    try {
+
+        localStorage.setItem(
+            "liminalCorrections",
+            JSON.stringify(corrections)
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Could not save corrections:",
+            error
+        );
+
+    }
 
 }
 
@@ -73,31 +148,29 @@ function saveCorrections() {
 // ==========================================
 // SHORT-TERM CONVERSATION CONTEXT
 // ==========================================
-//
-// Context is NOT permanent memory.
-//
-// Example:
-//
-// User: I like Minecraft.
-// AI: Minecraft is pretty cool.
-// User: What do you like about it?
-//
-// "it" can refer to Minecraft.
-//
-// Maximum stored messages: 12
-// ==========================================
 
-let conversationContext =
-    JSON.parse(
-        localStorage.getItem("liminalContext") || "[]"
-    );
+let conversationContext;
 
+try {
 
-// Make sure old/broken context data does not crash Liminal.
+    conversationContext =
+        JSON.parse(
+            localStorage.getItem(
+                "liminalContext"
+            ) || "[]"
+        );
 
-if (
-    !Array.isArray(conversationContext)
-) {
+    if (
+        !Array.isArray(
+            conversationContext
+        )
+    ) {
+
+        conversationContext = [];
+
+    }
+
+} catch (error) {
 
     conversationContext = [];
 
@@ -109,12 +182,23 @@ const MAX_CONTEXT_MESSAGES = 12;
 
 function saveConversationContext() {
 
-    localStorage.setItem(
-        "liminalContext",
-        JSON.stringify(
-            conversationContext
-        )
-    );
+    try {
+
+        localStorage.setItem(
+            "liminalContext",
+            JSON.stringify(
+                conversationContext
+            )
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Could not save conversation context:",
+            error
+        );
+
+    }
 
 }
 
@@ -124,9 +208,14 @@ function addContext(
     text
 ) {
 
-    if (!text) {
+    if (
+        !text
+    ) {
+
         return;
+
     }
+
 
     conversationContext.push({
 
@@ -179,6 +268,7 @@ function getLastUserMessage() {
 
     }
 
+
     return "";
 
 }
@@ -202,6 +292,7 @@ function getLastAIMessage() {
         }
 
     }
+
 
     return "";
 
@@ -250,14 +341,22 @@ function setContext(
     value = null
 ) {
 
-    if (!topic) {
+    if (
+        !topic
+    ) {
+
         return;
+
     }
+
 
     lastTopic =
         String(topic);
 
-    if (value !== null) {
+
+    if (
+        value !== null
+    ) {
 
         remember(
             topic,
@@ -352,8 +451,13 @@ function updateMoodUI() {
             "moodStatus"
         );
 
-    if (!moodElement) {
+
+    if (
+        !moodElement
+    ) {
+
         return;
+
     }
 
 
@@ -520,14 +624,14 @@ function normalizeText(text) {
             .trim();
 
 
-const replacements = {
+    const replacements = {
 
-    "what's": "what is",
-    "whats": "what is",
-    "wats": "what is",
-    "wat": "what",
+        "what's": "what is",
+        "whats": "what is",
+        "wats": "what is",
+        "wat": "what",
 
-    "iis": "is",
+        "iis": "is",
 
         "whos": "who is",
 
@@ -536,6 +640,7 @@ const replacements = {
 
         "fav": "favorite",
         "favourite": "favorite",
+
         "colour": "color",
 
         "pls": "please",
@@ -572,6 +677,7 @@ const replacements = {
         "thanx": "thanks",
 
         "googl": "google",
+
         "hows": "how is"
 
     };
@@ -725,8 +831,6 @@ function similarWord(
     }
 
 
-    // Exact match
-
     if (
         word === target
     ) {
@@ -735,9 +839,6 @@ function similarWord(
 
     }
 
-
-    // Very short words should never
-    // be fuzzy matched.
 
     if (
         word.length <= 2 ||
@@ -748,15 +849,6 @@ function similarWord(
 
     }
 
-
-    // Words with different first letters
-    // are much less likely to be typos.
-    //
-    // This prevents things like:
-    //
-    // game → name
-    //
-    // from being treated as the same word.
 
     if (
         word.charAt(0) !==
@@ -957,8 +1049,11 @@ function fuzzyPhraseMatch(
 
         }
 
+
         if (!found) {
+
             continue;
+
         }
 
     }
@@ -1025,8 +1120,12 @@ function matchesPrefix(
             .filter(Boolean);
 
 
-    if (!words.length) {
+    if (
+        !words.length
+    ) {
+
         return null;
+
     }
 
 
@@ -1120,8 +1219,12 @@ function remember(
         cleanMemoryKey(key);
 
 
-    if (!key) {
+    if (
+        !key
+    ) {
+
         return;
+
     }
 
 
@@ -1177,8 +1280,12 @@ function updateThemeButton() {
         );
 
 
-    if (!button) {
+    if (
+        !button
+    ) {
+
         return;
+
     }
 
 
@@ -1301,8 +1408,12 @@ function isSearchRequest(text) {
             .filter(Boolean);
 
 
-    if (!words.length) {
+    if (
+        !words.length
+    ) {
+
         return false;
+
     }
 
 
@@ -1419,7 +1530,9 @@ async function searchWeb(query) {
             await response.json();
 
 
-        if (!response.ok) {
+        if (
+            !response.ok
+        ) {
 
             throw new Error(
                 data.message ||
@@ -1615,14 +1728,14 @@ function isCorrection(text) {
             .filter(Boolean);
 
 
-    if (!words.length) {
+    if (
+        !words.length
+    ) {
+
         return false;
+
     }
 
-
-    // --------------------------------------
-    // Single-word corrections
-    // --------------------------------------
 
     if (
         words.length === 1 &&
@@ -1638,10 +1751,6 @@ function isCorrection(text) {
 
     }
 
-
-    // --------------------------------------
-    // Explicit correction phrases
-    // --------------------------------------
 
     const explicitPhrases = [
 
@@ -1673,10 +1782,6 @@ function isCorrection(text) {
     }
 
 
-    // --------------------------------------
-    // "actually" correction
-    // --------------------------------------
-
     if (
         normalized.startsWith(
             "actually "
@@ -1687,10 +1792,6 @@ function isCorrection(text) {
 
     }
 
-
-    // --------------------------------------
-    // "no, ..." correction
-    // --------------------------------------
 
     if (
         /^no\s*,/.test(
@@ -1740,10 +1841,6 @@ function handleCorrection(text) {
             correctionText
         );
 
-
-    // --------------------------------------
-    // Explicit memory correction
-    // --------------------------------------
 
     if (
         correctionText.startsWith(
@@ -1830,10 +1927,6 @@ function handleCorrection(text) {
     }
 
 
-    // --------------------------------------
-    // Context correction
-    // --------------------------------------
-
     if (
         lastTopic &&
         correctionText.startsWith(
@@ -1847,7 +1940,9 @@ function handleCorrection(text) {
                 .trim();
 
 
-        if (value) {
+        if (
+            value
+        ) {
 
             const oldValue =
                 memory[lastTopic] ||
@@ -1902,10 +1997,6 @@ function handleCorrection(text) {
     }
 
 
-    // --------------------------------------
-    // General correction
-    // --------------------------------------
-
     setConfidence(
         "low"
     );
@@ -1934,26 +2025,20 @@ function detectContextTopic(text) {
         normalizeText(text);
 
 
-    // --------------------------------------
-    // Memory topic
-    // --------------------------------------
-
     const memoryKey =
         findMemoryKey(
             normalized
         );
 
 
-    if (memoryKey) {
+    if (
+        memoryKey
+    ) {
 
         return memoryKey;
 
     }
 
-
-    // --------------------------------------
-    // About X
-    // --------------------------------------
 
     const aboutMatch =
         normalized.match(
@@ -1972,10 +2057,6 @@ function detectContextTopic(text) {
     }
 
 
-    // --------------------------------------
-    // I like X
-    // --------------------------------------
-
     if (
         normalized.startsWith(
             "i like "
@@ -1988,10 +2069,6 @@ function detectContextTopic(text) {
 
     }
 
-
-    // --------------------------------------
-    // My X is Y
-    // --------------------------------------
 
     if (
         normalized.startsWith(
@@ -2021,64 +2098,80 @@ function detectContextTopic(text) {
 
 
 // ==========================================
-// CONTEXT REFERENCE
+// NEW:
+// EXTRACT SUBJECT FROM FAVORITE QUESTIONS
+// ==========================================
+//
+// This is the important fix.
+//
+// It handles:
+//
+// what is your favorite part in minecraft
+// what is your favorite part of minecraft
+// what is your favorite part about minecraft
+// what's your favorite part in minecraft
+// what do you like about minecraft
+// what is your favorite thing about minecraft
+// what is your favorite thing in minecraft
+// what part do you like about minecraft
+//
+// It returns:
+//
+// minecraft
+//
+// instead of allowing the generic
+// "what is..." handler to steal the question.
 // ==========================================
 
-function resolveContextReference(text) {
+function getFavoriteSubject(text) {
 
     const normalized =
         normalizeText(text);
 
 
-    const referenceWords = [
+    const patterns = [
 
-        "it",
-        "that",
-        "this",
-        "they",
-        "them",
-        "he",
-        "she"
+        /^what is your favorite part (?:in|of|about) (.+)$/,
+        /^what is your favorite thing (?:in|of|about) (.+)$/,
+        /^what do you like about (.+)$/,
+        /^what part do you like (?:in|of|about) (.+)$/,
+        /^what is your favorite part (.+)$/
 
     ];
 
 
-    const hasReference =
-        referenceWords.some(
-            word =>
-                normalized
-                    .split(/\s+/)
-                    .includes(word)
-        );
+    for (
+        const pattern of patterns
+    ) {
 
-
-    if (!hasReference) {
-        return null;
-    }
-
-
-    if (lastTopic) {
-
-        return lastTopic;
-
-    }
-
-
-    const previousUser =
-        getLastUserMessage();
-
-
-    if (previousUser) {
-
-        const detected =
-            detectContextTopic(
-                previousUser
+        const match =
+            normalized.match(
+                pattern
             );
 
 
-        if (detected) {
+        if (
+            match &&
+            match[1]
+        ) {
 
-            return detected;
+            const subject =
+                match[1]
+                    .trim()
+                    .replace(
+                        /[?.!]+$/,
+                        ""
+                    )
+                    .trim();
+
+
+            if (
+                subject
+            ) {
+
+                return subject;
+
+            }
 
         }
 
@@ -2086,6 +2179,136 @@ function resolveContextReference(text) {
 
 
     return null;
+
+}
+
+
+// ==========================================
+// CHECK IF MESSAGE IS A FAVORITE QUESTION
+// ==========================================
+
+function isFavoriteQuestion(text) {
+
+    return (
+        getFavoriteSubject(text) !==
+        null
+    );
+
+}
+
+
+// ==========================================
+// FAVORITE SUBJECT RESPONSE
+// ==========================================
+
+function answerFavoriteQuestion(
+    subject
+) {
+
+    const normalizedSubject =
+        normalizeText(
+            subject
+        );
+
+
+    setMood(
+        "curious"
+    );
+
+
+    setConfidence(
+        "high"
+    );
+
+
+    // ======================================
+    // MINECRAFT
+    // ======================================
+
+    if (
+        normalizedSubject === "minecraft" ||
+        normalizedSubject.includes(
+            "minecraft"
+        )
+    ) {
+
+        return (
+            "My favorite part of Minecraft is probably exploring caves and finding interesting places underground. ⛏️🟩"
+        );
+
+    }
+
+
+    // ======================================
+    // ROBLOX
+    // ======================================
+
+    if (
+        normalizedSubject === "roblox"
+    ) {
+
+        return (
+            "My favorite part of Roblox is probably how many different kinds of experiences people can create. 🎮"
+        );
+
+    }
+
+
+    // ======================================
+    // CODING
+    // ======================================
+
+    if (
+        normalizedSubject === "coding" ||
+        normalizedSubject === "programming"
+    ) {
+
+        return (
+            "My favorite part of coding is probably turning an idea into something that actually works. 💻"
+        );
+
+    }
+
+
+    // ======================================
+    // PYTHON
+    // ======================================
+
+    if (
+        normalizedSubject === "python"
+    ) {
+
+        return (
+            "My favorite part of Python is how readable it is and how many different things you can build with it. 🐍"
+        );
+
+    }
+
+
+    // ======================================
+    // JAVASCRIPT
+    // ======================================
+
+    if (
+        normalizedSubject === "javascript"
+    ) {
+
+        return (
+            "My favorite part of JavaScript is making webpages actually do things instead of just displaying information. 🌐"
+        );
+
+    }
+
+
+    // ======================================
+    // GENERAL
+    // ======================================
+
+    return (
+        "I'd probably say my favorite part about " +
+        subject +
+        " is exploring it and finding interesting things to talk about. 😎"
+    );
 
 }
 
@@ -2117,7 +2340,9 @@ function think(originalText) {
         );
 
 
-    if (detectedMood) {
+    if (
+        detectedMood
+    ) {
 
         setMood(
             detectedMood
@@ -2609,35 +2834,80 @@ function think(originalText) {
         ]);
 
     }
-// ======================================
-// FAVORITE GAME
-// ======================================
 
-if (
-    matchesIntent(
-        text,
-        [
-            "what is your favorite game",
-            "what game do you like",
-            "do you have a favorite game"
-        ],
-        {
-            allowExtraWords: true,
-            maxExtraWords: 4
+
+    // ======================================
+    // FAVORITE GAME
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "what is your favorite game",
+                "what game do you like",
+                "do you have a favorite game"
+            ],
+            {
+                allowExtraWords: true,
+                maxExtraWords: 4
+            }
+        )
+    ) {
+
+        setMood(
+            "playful"
+        );
+
+
+        return (
+            "I don't actually play games, but Minecraft would probably be one of my favorites to talk about. 🎮⛏️"
+        );
+
+    }
+
+
+    // ======================================
+    // ⭐ FAVORITE PART
+    // ======================================
+    //
+    // THIS MUST COME BEFORE:
+    //
+    // "what is..."
+    //
+    // Otherwise:
+    //
+    // what is your favorite part in minecraft
+    //
+    // could become:
+    //
+    // I don't have a built-in explanation...
+    //
+    // ======================================
+
+    if (
+        isFavoriteQuestion(
+            text
+        )
+    ) {
+
+        const subject =
+            getFavoriteSubject(
+                text
+            );
+
+
+        if (
+            subject
+        ) {
+
+            return answerFavoriteQuestion(
+                subject
+            );
+
         }
-    )
-) {
 
-    setMood(
-        "playful"
-    );
-
-    return (
-        "I don't actually play games, but Minecraft would probably be one of my favorites to talk about. 🎮⛏️"
-    );
-
-}
-
+    }
 
 
     // ======================================
@@ -2661,7 +2931,9 @@ if (
         )
     ) {
 
-        return "I'm Liminal AI 0.8.";
+        return (
+            "I'm Liminal AI 0.8."
+        );
 
     }
 
@@ -2714,6 +2986,10 @@ if (
         )
     ) {
 
+        const mood =
+            currentMood;
+
+
         setMood(
             "thoughtful"
         );
@@ -2721,7 +2997,7 @@ if (
 
         return (
             "My current conversational mood is " +
-            currentMood +
+            mood +
             ". It's an internal state I use to vary how I respond, not a human emotion."
         );
 
@@ -2930,139 +3206,6 @@ if (
     }
 
 
-// ======================================
-// FAVORITE PART / THING ABOUT SOMETHING
-// ======================================
-
-const favoritePartPatterns = [
-
-    "what is your favorite part",
-    "what is your favorite thing about",
-    "what do you like about",
-    "what is your favorite part of",
-    "what is your favorite thing in",
-    "what part do you like"
-
-];
-
-if (
-    matchesPrefix(
-        text,
-        favoritePartPatterns
-    )
-) {
-
-    const words =
-        text.split(/\s+/);
-
-    const prefixes = [
-        "what is your favorite part",
-        "what is your favorite thing about",
-        "what do you like about",
-        "what is your favorite part of",
-        "what is your favorite thing in",
-        "what part do you like"
-    ];
-
-    let matchedPrefix = null;
-
-    for (
-        const prefix of prefixes
-    ) {
-
-        const prefixWords =
-            normalizeText(prefix)
-                .split(/\s+/);
-
-        if (
-            words.length >=
-            prefixWords.length
-        ) {
-
-            let matches = true;
-
-            for (
-                let i = 0;
-                i < prefixWords.length;
-                i++
-            ) {
-
-                if (
-                    !similarWord(
-                        words[i],
-                        prefixWords[i]
-                    )
-                ) {
-
-                    matches = false;
-
-                    break;
-
-                }
-
-            }
-
-            if (matches) {
-
-                matchedPrefix =
-                    prefix;
-
-                break;
-
-            }
-
-        }
-
-    }
-
-    if (matchedPrefix) {
-
-        const prefixLength =
-            normalizeText(
-                matchedPrefix
-            )
-                .split(/\s+/)
-                .length;
-
-        const subject =
-            words
-                .slice(prefixLength)
-                .join(" ")
-                .trim();
-
-        if (subject) {
-
-            setMood(
-                "curious"
-            );
-
-            // Minecraft-specific answer
-
-            if (
-                subject.includes(
-                    "minecraft"
-                )
-            ) {
-
-                return (
-                    "My favorite part of Minecraft is probably exploring caves and finding interesting places underground. ⛏️🟩"
-                );
-
-            }
-
-            // General answer
-
-            return (
-                "I'd probably say my favorite part about " +
-                subject +
-                " is exploring it and finding interesting things to talk about. 😎"
-            );
-
-        }
-
-    }
-
-}
     // ======================================
     // WHAT DO YOU LIKE
     // ======================================
@@ -3237,7 +3380,9 @@ if (
         );
 
 
-    if (rememberPrefix) {
+    if (
+        rememberPrefix
+    ) {
 
         const prefixLength =
             normalizeText(
@@ -3376,7 +3521,9 @@ if (
                 .trim();
 
 
-        if (value) {
+        if (
+            value
+        ) {
 
             remember(
                 "identity",
@@ -3410,7 +3557,9 @@ if (
                 .trim();
 
 
-        if (value) {
+        if (
+            value
+        ) {
 
             remember(
                 "location",
@@ -3444,7 +3593,9 @@ if (
                 .trim();
 
 
-        if (value) {
+        if (
+            value
+        ) {
 
             remember(
                 "likes",
@@ -3537,7 +3688,9 @@ if (
         );
 
 
-    if (possibleKey) {
+    if (
+        possibleKey
+    ) {
 
         const value =
             getMemory(
@@ -3545,7 +3698,9 @@ if (
             );
 
 
-        if (value) {
+        if (
+            value
+        ) {
 
             lastTopic =
                 possibleKey;
@@ -3591,9 +3746,15 @@ if (
             );
 
 
+        const prefix =
+            words[0] === "tell"
+                ? 2
+                : 3;
+
+
         const key =
             words
-                .slice(3)
+                .slice(prefix)
                 .join(" ")
                 .trim();
 
@@ -3610,7 +3771,9 @@ if (
             );
 
 
-        if (value) {
+        if (
+            value
+        ) {
 
             lastTopic =
                 cleanKey;
@@ -3663,7 +3826,9 @@ if (
             );
 
 
-        if (!keys.length) {
+        if (
+            !keys.length
+        ) {
 
             return (
                 "I don't remember anything yet."
@@ -3932,6 +4097,8 @@ if (
         );
 
 
+        // "what do you like about it"
+
         if (
             text.includes(
                 "what do you like"
@@ -3962,7 +4129,9 @@ if (
                 );
 
 
-            if (remembered) {
+            if (
+                remembered
+            ) {
 
                 return (
                     "You told me your " +
@@ -4007,7 +4176,9 @@ if (
         )
     ) {
 
-        if (lastTopic) {
+        if (
+            lastTopic
+        ) {
 
             const value =
                 getMemory(
@@ -4015,7 +4186,9 @@ if (
                 );
 
 
-            if (value) {
+            if (
+                value
+            ) {
 
                 return (
                     "Your " +
@@ -4062,7 +4235,9 @@ if (
         )
     ) {
 
-        if (lastTopic) {
+        if (
+            lastTopic
+        ) {
 
             setConfidence(
                 "medium"
@@ -4653,6 +4828,12 @@ if (
     // ======================================
     // SIMPLE "WHAT IS"
     // ======================================
+    //
+    // This is deliberately VERY late.
+    //
+    // Specific questions must have already
+    // been handled above.
+    // ======================================
 
     if (
         text.startsWith(
@@ -4667,7 +4848,9 @@ if (
                 .trim();
 
 
-        if (subject.length > 0) {
+        if (
+            subject.length > 0
+        ) {
 
             setConfidence(
                 "low"
@@ -4705,7 +4888,9 @@ if (
                 .trim();
 
 
-        if (subject.length > 0) {
+        if (
+            subject.length > 0
+        ) {
 
             setConfidence(
                 "low"
@@ -4743,7 +4928,9 @@ if (
                 .trim();
 
 
-        if (subject.length > 0) {
+        if (
+            subject.length > 0
+        ) {
 
             setConfidence(
                 "low"
@@ -4786,6 +4973,92 @@ if (
 
 
 // ==========================================
+// CONTEXT REFERENCE
+// ==========================================
+
+function resolveContextReference(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    const referenceWords = [
+
+        "it",
+        "that",
+        "this",
+        "they",
+        "them",
+        "he",
+        "she"
+
+    ];
+
+
+    const words =
+        normalized
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+    const hasReference =
+        referenceWords.some(
+            word =>
+                words.includes(
+                    word
+                )
+        );
+
+
+    if (
+        !hasReference
+    ) {
+
+        return null;
+
+    }
+
+
+    if (
+        lastTopic
+    ) {
+
+        return lastTopic;
+
+    }
+
+
+    const previousUser =
+        getLastUserMessage();
+
+
+    if (
+        previousUser
+    ) {
+
+        const detected =
+            detectContextTopic(
+                previousUser
+            );
+
+
+        if (
+            detected
+        ) {
+
+            return detected;
+
+        }
+
+    }
+
+
+    return null;
+
+}
+
+
+// ==========================================
 // SAFE DISPLAY
 // ==========================================
 
@@ -4794,8 +5067,12 @@ function displayAIResponse(
     text
 ) {
 
-    if (!element) {
+    if (
+        !element
+    ) {
+
         return;
+
     }
 
 
@@ -4915,8 +5192,12 @@ async function sendMessage() {
         input.value.trim();
 
 
-    if (!originalText) {
+    if (
+        !originalText
+    ) {
+
         return;
+
     }
 
 
@@ -5005,7 +5286,9 @@ async function sendMessage() {
             );
 
 
-        if (query) {
+        if (
+            query
+        ) {
 
             aiMessage.textContent =
                 "Searching... 🌐";
@@ -5139,10 +5422,32 @@ async function sendMessage() {
         );
 
 
-    if (detectedTopic) {
+    if (
+        detectedTopic
+    ) {
 
         lastTopic =
             detectedTopic;
+
+    }
+
+
+    // If this was a favorite question,
+    // explicitly remember its subject
+    // as the current conversation topic.
+
+    const favoriteSubject =
+        getFavoriteSubject(
+            originalText
+        );
+
+
+    if (
+        favoriteSubject
+    ) {
+
+        lastTopic =
+            favoriteSubject;
 
     }
 
@@ -5183,8 +5488,12 @@ function clearChat() {
         );
 
 
-    if (!messages) {
+    if (
+        !messages
+    ) {
+
         return;
+
     }
 
 
@@ -5209,8 +5518,6 @@ function clearChat() {
         welcome
     );
 
-
-    // Clear short-term context.
 
     clearConversationContext();
 
@@ -5258,7 +5565,9 @@ async function testBackend() {
             );
 
 
-        if (!response.ok) {
+        if (
+            !response.ok
+        ) {
 
             throw new Error(
                 "Backend returned " +
@@ -5309,7 +5618,9 @@ async function getBackendInfo() {
             );
 
 
-        if (!response.ok) {
+        if (
+            !response.ok
+        ) {
 
             throw new Error(
                 "Backend info unavailable"
@@ -5370,7 +5681,9 @@ async function liminalRespond(
             );
 
 
-        if (query) {
+        if (
+            query
+        ) {
 
             addContext(
                 "user",
@@ -5480,10 +5793,28 @@ async function liminalRespond(
         );
 
 
-    if (detectedTopic) {
+    if (
+        detectedTopic
+    ) {
 
         lastTopic =
             detectedTopic;
+
+    }
+
+
+    const favoriteSubject =
+        getFavoriteSubject(
+            text
+        );
+
+
+    if (
+        favoriteSubject
+    ) {
+
+        lastTopic =
+            favoriteSubject;
 
     }
 
@@ -5543,7 +5874,14 @@ window.Liminal = {
         },
 
     clearContext:
-        clearConversationContext
+        clearConversationContext,
+
+    getTopic:
+        function() {
+
+            return lastTopic;
+
+        }
 
 };
 
@@ -5560,7 +5898,9 @@ function initializeLiminal() {
         );
 
 
-    if (input) {
+    if (
+        input
+    ) {
 
         input.addEventListener(
             "keydown",
@@ -5611,24 +5951,43 @@ function initializeLiminal() {
         );
 
 
-        // Restore the most recent topic.
-
         const lastUser =
             getLastUserMessage();
 
 
-        if (lastUser) {
+        if (
+            lastUser
+        ) {
 
-            const restoredTopic =
-                detectContextTopic(
+            const restoredFavorite =
+                getFavoriteSubject(
                     lastUser
                 );
 
 
-            if (restoredTopic) {
+            if (
+                restoredFavorite
+            ) {
 
                 lastTopic =
-                    restoredTopic;
+                    restoredFavorite;
+
+            } else {
+
+                const restoredTopic =
+                    detectContextTopic(
+                        lastUser
+                    );
+
+
+                if (
+                    restoredTopic
+                ) {
+
+                    lastTopic =
+                        restoredTopic;
+
+                }
 
             }
 
@@ -5644,7 +6003,9 @@ function initializeLiminal() {
 }
 
 
-// Support both script loading styles.
+// ==========================================
+// SUPPORT BOTH SCRIPT LOADING STYLES
+// ==========================================
 
 if (
     document.readyState ===
