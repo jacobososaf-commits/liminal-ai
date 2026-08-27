@@ -1,10 +1,12 @@
 // ==========================================
-// LIMINAL AI 0.8
+// LIMINAL AI 0.8.1
 // liminal.js
 //
 // ORIGINAL LIMINAL AI AGENT
 //
-// 0.8
+// 0.8.1 BUG FIX UPDATE
+//
+// 0.8 FEATURES PRESERVED
 // - Conversation context
 // - Short-term context memory
 // - Mood system
@@ -19,15 +21,19 @@
 // - Existing confidence preserved
 // - Existing personality preserved
 //
-// FIXES
-// - Fixed favorite-part routing
-// - Fixed "what is your favorite part in X"
-// - Fixed "what do you like about X"
-// - Fixed generic "what is" stealing specific questions
-// - Improved topic extraction
-// - Improved context references
-// - Improved memory question routing
-// - Prevented generic fallback from answering known Liminal questions
+// 0.8.1 FIXES
+// - Fixed "forget" hijacking normal conversation
+// - Fixed "actually" hijacking normal conversation
+// - Removed dangerous "id" normalization collision
+// - Removed dangerous "r" normalization collision
+// - Added safer contraction normalization
+// - Fixed empty search requests
+// - Improved fuzzy memory-key detection
+// - Fixed empty "what is my" responses
+// - Improved context reference detection
+// - Preserved favorite-part routing
+// - Preserved generic "what is" routing
+// - Preserved memory compatibility
 // ==========================================
 
 
@@ -615,6 +621,16 @@ function detectMoodFromMessage(text) {
 // ==========================================
 // NORMALIZATION
 // ==========================================
+//
+// IMPORTANT:
+// Do NOT normalize short real words such as:
+// "id" -> "i would"
+// "r"  -> "are"
+//
+// Those can corrupt legitimate memory.
+//
+// We only normalize actual informal forms.
+// ==========================================
 
 function normalizeText(text) {
 
@@ -633,39 +649,75 @@ function normalizeText(text) {
 
         "iis": "is",
 
+        "who's": "who is",
         "whos": "who is",
 
+        "where's": "where is",
         "wheres": "where is",
         "wher": "where",
 
+        "favorite": "favorite",
         "fav": "favorite",
         "favourite": "favorite",
 
         "colour": "color",
 
+        "please": "please",
         "pls": "please",
         "plz": "please",
 
+        "i'm": "i am",
         "im": "i am",
-        "ive": "i have",
-        "id": "i would",
 
-        "u": "you",
-        "ur": "your",
-        "ya": "you",
-        "r": "are",
+        "i've": "i have",
+        "ive": "i have",
+
+        "i'll": "i will",
+        "ill": "i will",
+
+        "i'd": "i would",
+
+        "you'd": "you would",
+        "you'll": "you will",
+        "you've": "you have",
+        "youre": "you are",
+        "you're": "you are",
+
+        "theyre": "they are",
+        "they're": "they are",
+
+        "we're": "we are",
+        "were": "we are",
 
         "cant": "cannot",
+        "can't": "cannot",
+
         "dont": "do not",
+        "don't": "do not",
+
         "doesnt": "does not",
+        "doesn't": "does not",
+
         "didnt": "did not",
+        "didn't": "did not",
+
+        "isnt": "is not",
+        "isn't": "is not",
+
+        "arent": "are not",
+        "aren't": "are not",
+
+        "wasnt": "was not",
+        "wasn't": "was not",
+
+        "werent": "were not",
+        "weren't": "were not",
 
         "thats": "that is",
-        "youre": "you are",
-        "theyre": "they are",
+        "that's": "that is",
 
-        "rember": "remember",
-        "remeber": "remember",
+        "hows": "how is",
+        "how's": "how is",
 
         "tel": "tell",
         "tll": "tell",
@@ -678,7 +730,9 @@ function normalizeText(text) {
 
         "googl": "google",
 
-        "hows": "how is"
+        "ur": "your",
+        "u": "you",
+        "ya": "you"
 
     };
 
@@ -1514,6 +1568,33 @@ function getSearchQuery(text) {
 
 async function searchWeb(query) {
 
+    const cleanQuery =
+        String(query || "").trim();
+
+
+    if (
+        !cleanQuery
+    ) {
+
+        return {
+
+            success:
+                false,
+
+            available:
+                true,
+
+            results:
+                [],
+
+            message:
+                "No search query was provided."
+
+        };
+
+    }
+
+
     try {
 
         const response =
@@ -1521,7 +1602,7 @@ async function searchWeb(query) {
                 BACKEND_URL +
                 "/api/search?q=" +
                 encodeURIComponent(
-                    query
+                    cleanQuery
                 )
             );
 
@@ -1577,132 +1658,157 @@ async function searchWeb(query) {
 // ==========================================
 // MEMORY KEY DETECTION
 // ==========================================
+//
+// Uses normalized text first, then fuzzy
+// matching for common memory categories.
+// ==========================================
 
 function findMemoryKey(text) {
 
-    text =
+    const normalized =
         normalizeText(text);
 
 
-    if (
-        text.includes(
-            "favorite color"
-        ) ||
-        text.includes(
-            "what color do i like"
-        )
+    const memoryPatterns = [
+
+        {
+            key: "favorite color",
+            phrases: [
+                "favorite color",
+                "what color do i like",
+                "what is my favorite color",
+                "what is my favorite colour"
+            ]
+        },
+
+        {
+            key: "favorite game",
+            phrases: [
+                "favorite game",
+                "what game do i like",
+                "what is my favorite game"
+            ]
+        },
+
+        {
+            key: "favorite food",
+            phrases: [
+                "favorite food",
+                "what food do i like",
+                "what is my favorite food"
+            ]
+        },
+
+        {
+            key: "favorite song",
+            phrases: [
+                "favorite song",
+                "what song do i like",
+                "what is my favorite song"
+            ]
+        },
+
+        {
+            key: "favorite music",
+            phrases: [
+                "favorite music",
+                "what music do i like",
+                "what is my favorite music"
+            ]
+        },
+
+        {
+            key: "favorite movie",
+            phrases: [
+                "favorite movie",
+                "what movie do i like",
+                "what is my favorite movie"
+            ]
+        },
+
+        {
+            key: "favorite animal",
+            phrases: [
+                "favorite animal",
+                "what animal do i like",
+                "what is my favorite animal"
+            ]
+        },
+
+        {
+            key: "name",
+            phrases: [
+                "my name",
+                "what is my name",
+                "tell me my name"
+            ]
+        },
+
+        {
+            key: "location",
+            phrases: [
+                "where do i live",
+                "my location",
+                "what is my location"
+            ]
+        }
+
+    ];
+
+
+    // Exact / substring detection first.
+
+    for (
+        const item of memoryPatterns
     ) {
 
-        return "favorite color";
+        for (
+            const phrase of item.phrases
+        ) {
+
+            if (
+                normalized.includes(
+                    normalizeText(
+                        phrase
+                    )
+                )
+            ) {
+
+                return item.key;
+
+            }
+
+        }
 
     }
 
 
-    if (
-        text.includes(
-            "favorite game"
-        ) ||
-        text.includes(
-            "what game do i like"
-        )
+    // Fuzzy phrase detection second.
+
+    for (
+        const item of memoryPatterns
     ) {
 
-        return "favorite game";
+        for (
+            const phrase of item.phrases
+        ) {
 
-    }
+            if (
+                fuzzyPhraseMatch(
+                    normalized,
+                    phrase,
+                    {
+                        allowExtraWords: true,
+                        maxExtraWords: 5
+                    }
+                )
+            ) {
 
+                return item.key;
 
-    if (
-        text.includes(
-            "favorite food"
-        ) ||
-        text.includes(
-            "what food do i like"
-        )
-    ) {
+            }
 
-        return "favorite food";
-
-    }
-
-
-    if (
-        text.includes(
-            "favorite song"
-        ) ||
-        text.includes(
-            "what song do i like"
-        )
-    ) {
-
-        return "favorite song";
-
-    }
-
-
-    if (
-        text.includes(
-            "favorite music"
-        ) ||
-        text.includes(
-            "what music do i like"
-        )
-    ) {
-
-        return "favorite music";
-
-    }
-
-
-    if (
-        text.includes(
-            "favorite movie"
-        ) ||
-        text.includes(
-            "what movie do i like"
-        )
-    ) {
-
-        return "favorite movie";
-
-    }
-
-
-    if (
-        text.includes(
-            "favorite animal"
-        ) ||
-        text.includes(
-            "what animal do i like"
-        )
-    ) {
-
-        return "favorite animal";
-
-    }
-
-
-    if (
-        text.includes(
-            "my name"
-        )
-    ) {
-
-        return "name";
-
-    }
-
-
-    if (
-        text.includes(
-            "where do i live"
-        ) ||
-        text.includes(
-            "my location"
-        )
-    ) {
-
-        return "location";
+        }
 
     }
 
@@ -1714,6 +1820,17 @@ function findMemoryKey(text) {
 
 // ==========================================
 // CORRECTIONS
+// ==========================================
+//
+// IMPORTANT:
+//
+// "actually I think pizza is great"
+//
+// should NOT automatically become a correction.
+//
+// We only treat "actually" as correction
+// language when the message contains a
+// recognizable correction structure.
 // ==========================================
 
 function isCorrection(text) {
@@ -1782,24 +1899,149 @@ function isCorrection(text) {
     }
 
 
+    // "No, that's wrong..."
+
+    if (
+        /^no\s*,\s*(that is|you are|this is)?/.test(
+            normalized
+        )
+    ) {
+
+        if (
+            normalized.includes("wrong") ||
+            normalized.includes("incorrect") ||
+            normalized.includes("not correct")
+        ) {
+
+            return true;
+
+        }
+
+    }
+
+
+    // ======================================
+    // ACTUALLY
+    // ======================================
+    //
+    // Only treat "actually" as a correction
+    // when it introduces recognizable
+    // correction information.
+    // ======================================
+
     if (
         normalized.startsWith(
             "actually "
         )
     ) {
 
-        return true;
-
-    }
-
-
-    if (
-        /^no\s*,/.test(
+        const afterActually =
             normalized
-        )
-    ) {
+                .substring(
+                    "actually ".length
+                )
+                .trim();
 
-        return true;
+
+        if (
+            !afterActually
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            afterActually.startsWith(
+                "my "
+            ) &&
+            afterActually.includes(
+                " is "
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        if (
+            afterActually.startsWith(
+                "it is "
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        if (
+            afterActually.startsWith(
+                "that is "
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        if (
+            afterActually.startsWith(
+                "this is "
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        if (
+            afterActually.startsWith(
+                "i meant "
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        if (
+            afterActually.startsWith(
+                "i mean "
+            )
+        ) {
+
+            return true;
+
+        }
+
+
+        if (
+            lastQuestion &&
+            (
+                afterActually.includes(
+                    "not "
+                ) ||
+                afterActually.includes(
+                    "wrong"
+                ) ||
+                afterActually.includes(
+                    "incorrect"
+                ) ||
+                afterActually.includes(
+                    "instead"
+                )
+            )
+        ) {
+
+            return true;
+
+        }
 
     }
 
@@ -1841,6 +2083,168 @@ function handleCorrection(text) {
             correctionText
         );
 
+
+    // ======================================
+    // "I MEANT..."
+    // ======================================
+
+    if (
+        correctionText.startsWith(
+            "i meant "
+        )
+    ) {
+
+        const value =
+            correctionText
+                .substring(8)
+                .trim();
+
+
+        if (
+            value &&
+            lastTopic
+        ) {
+
+            const oldValue =
+                memory[lastTopic] ||
+                null;
+
+
+            remember(
+                lastTopic,
+                value
+            );
+
+
+            corrections.push({
+
+                type:
+                    "context_update",
+
+                key:
+                    lastTopic,
+
+                oldValue,
+
+                newValue:
+                    value,
+
+                time:
+                    new Date()
+                        .toISOString()
+
+            });
+
+
+            saveCorrections();
+
+
+            setConfidence(
+                "high"
+            );
+
+
+            setMood(
+                "helpful"
+            );
+
+
+            return (
+                "You're right! I've corrected my memory. " +
+                "Your " +
+                lastTopic +
+                " is now " +
+                value +
+                "."
+            );
+
+        }
+
+    }
+
+
+    // ======================================
+    // "I MEAN..."
+    // ======================================
+
+    if (
+        correctionText.startsWith(
+            "i mean "
+        )
+    ) {
+
+        const value =
+            correctionText
+                .substring(7)
+                .trim();
+
+
+        if (
+            value &&
+            lastTopic
+        ) {
+
+            const oldValue =
+                memory[lastTopic] ||
+                null;
+
+
+            remember(
+                lastTopic,
+                value
+            );
+
+
+            corrections.push({
+
+                type:
+                    "context_update",
+
+                key:
+                    lastTopic,
+
+                oldValue,
+
+                newValue:
+                    value,
+
+                time:
+                    new Date()
+                        .toISOString()
+
+            });
+
+
+            saveCorrections();
+
+
+            setConfidence(
+                "high"
+            );
+
+
+            setMood(
+                "helpful"
+            );
+
+
+            return (
+                "Got it! I've corrected my memory. " +
+                "Your " +
+                lastTopic +
+                " is now " +
+                value +
+                "."
+            );
+
+        }
+
+    }
+
+
+    // ======================================
+    // "MY X IS Y"
+    // ======================================
 
     if (
         correctionText.startsWith(
@@ -1927,6 +2331,10 @@ function handleCorrection(text) {
     }
 
 
+    // ======================================
+    // "IT IS X"
+    // ======================================
+
     if (
         lastTopic &&
         correctionText.startsWith(
@@ -1980,6 +2388,11 @@ function handleCorrection(text) {
 
             setMood(
                 "helpful"
+            );
+
+
+            setConfidence(
+                "high"
             );
 
 
@@ -2052,6 +2465,11 @@ function detectContextTopic(text) {
     ) {
 
         return aboutMatch[1]
+            .trim()
+            .replace(
+                /[?.!]+$/,
+                ""
+            )
             .trim();
 
     }
@@ -2098,29 +2516,7 @@ function detectContextTopic(text) {
 
 
 // ==========================================
-// NEW:
-// EXTRACT SUBJECT FROM FAVORITE QUESTIONS
-// ==========================================
-//
-// This is the important fix.
-//
-// It handles:
-//
-// what is your favorite part in minecraft
-// what is your favorite part of minecraft
-// what is your favorite part about minecraft
-// what's your favorite part in minecraft
-// what do you like about minecraft
-// what is your favorite thing about minecraft
-// what is your favorite thing in minecraft
-// what part do you like about minecraft
-//
-// It returns:
-//
-// minecraft
-//
-// instead of allowing the generic
-// "what is..." handler to steal the question.
+// FAVORITE SUBJECT
 // ==========================================
 
 function getFavoriteSubject(text) {
@@ -2132,10 +2528,18 @@ function getFavoriteSubject(text) {
     const patterns = [
 
         /^what is your favorite part (?:in|of|about) (.+)$/,
+
         /^what is your favorite thing (?:in|of|about) (.+)$/,
+
         /^what do you like about (.+)$/,
+
         /^what part do you like (?:in|of|about) (.+)$/,
-        /^what is your favorite part (.+)$/
+
+        /^what is your favorite part (.+)$/,
+
+        /^what is your favorite thing (.+)$/,
+
+        /^what do you like about (.+)$/
 
     ];
 
@@ -2184,7 +2588,7 @@ function getFavoriteSubject(text) {
 
 
 // ==========================================
-// CHECK IF MESSAGE IS A FAVORITE QUESTION
+// FAVORITE QUESTION
 // ==========================================
 
 function isFavoriteQuestion(text) {
@@ -2308,6 +2712,292 @@ function answerFavoriteQuestion(
         "I'd probably say my favorite part about " +
         subject +
         " is exploring it and finding interesting things to talk about. 😎"
+    );
+
+}
+
+
+// ==========================================
+// FORGET DETECTION
+// ==========================================
+//
+// This replaces the dangerous:
+//
+// matchesPrefix(text, ["forget my", "forget"])
+//
+// "forget about it" is normal conversation,
+// not necessarily a memory command.
+//
+// We require a meaningful memory target.
+// ==========================================
+
+function isForgetRequest(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    const words =
+        normalized
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+    if (
+        words.length < 2
+    ) {
+
+        return false;
+
+    }
+
+
+    if (
+        words[0] !== "forget"
+    ) {
+
+        return false;
+
+    }
+
+
+    const target =
+        words
+            .slice(1)
+            .join(" ")
+            .trim();
+
+
+    if (
+        !target
+    ) {
+
+        return false;
+
+    }
+
+
+    // Common conversational phrases.
+    const normalConversationTargets = [
+
+        "about it",
+        "about this",
+        "about that",
+        "it",
+        "this",
+        "that",
+        "you",
+        "me",
+        "everything",
+        "what i said"
+
+    ];
+
+
+    if (
+        normalConversationTargets.includes(
+            target
+        )
+    ) {
+
+        // "forget that" can be a memory
+        // command only when it clearly refers
+        // to something stored.
+        if (
+            target === "that" &&
+            lastTopic
+        ) {
+
+            return true;
+
+        }
+
+
+        return false;
+
+    }
+
+
+    // "forget my favorite color"
+    if (
+        target.startsWith(
+            "my "
+        )
+    ) {
+
+        return true;
+
+    }
+
+
+    // Known memory keys.
+    const knownMemoryKey =
+        findMemoryKey(
+            "what is my " +
+            target
+        );
+
+
+    if (
+        knownMemoryKey
+    ) {
+
+        return true;
+
+    }
+
+
+    // Generic explicit target.
+    //
+    // This allows:
+    // forget favorite color
+    // forget my favorite game
+    // forget location
+    //
+    return (
+        target.length >= 2
+    );
+
+}
+
+
+// ==========================================
+// HANDLE FORGET
+// ==========================================
+
+function handleForget(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    const words =
+        normalized
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+    let key;
+
+
+    if (
+        words[1] === "my"
+    ) {
+
+        key =
+            words
+                .slice(2)
+                .join(" ")
+                .trim();
+
+    } else {
+
+        key =
+            words
+                .slice(1)
+                .join(" ")
+                .trim();
+
+    }
+
+
+    // ======================================
+    // Resolve known memory categories.
+    // ======================================
+
+    const knownKey =
+        findMemoryKey(
+            "what is my " +
+            key
+        );
+
+
+    if (
+        knownKey
+    ) {
+
+        key =
+            knownKey;
+
+    }
+
+
+    const cleanKey =
+        cleanMemoryKey(
+            key
+        );
+
+
+    if (
+        !cleanKey
+    ) {
+
+        setConfidence(
+            "low"
+        );
+
+
+        return (
+            "Tell me which memory you want me to forget."
+        );
+
+    }
+
+
+    if (
+        Object.prototype.hasOwnProperty.call(
+            memory,
+            cleanKey
+        )
+    ) {
+
+        delete memory[
+            cleanKey
+        ];
+
+
+        saveMemory();
+
+
+        if (
+            lastTopic ===
+            cleanKey
+        ) {
+
+            lastTopic =
+                null;
+
+        }
+
+
+        setConfidence(
+            "high"
+        );
+
+
+        setMood(
+            "helpful"
+        );
+
+
+        return (
+            "Okay, I forgot your " +
+            cleanKey +
+            "."
+        );
+
+    }
+
+
+    setConfidence(
+        "medium"
+    );
+
+
+    return (
+        "I don't have a memory about your " +
+        cleanKey +
+        "."
     );
 
 }
@@ -2868,21 +3558,7 @@ function think(originalText) {
 
 
     // ======================================
-    // ⭐ FAVORITE PART
-    // ======================================
-    //
-    // THIS MUST COME BEFORE:
-    //
-    // "what is..."
-    //
-    // Otherwise:
-    //
-    // what is your favorite part in minecraft
-    //
-    // could become:
-    //
-    // I don't have a built-in explanation...
-    //
+    // FAVORITE PART
     // ======================================
 
     if (
@@ -2932,7 +3608,7 @@ function think(originalText) {
     ) {
 
         return (
-            "I'm Liminal AI 0.8."
+            "I'm Liminal AI 0.8.1."
         );
 
     }
@@ -2960,7 +3636,7 @@ function think(originalText) {
     ) {
 
         return (
-            "I'm Liminal AI 0.8. This version adds short-term conversation context and an internal mood system while keeping my memory, corrections, math, and web search."
+            "I'm Liminal AI 0.8.1. This is the bug-fix build of 0.8, keeping short-term conversation context, mood, memory, corrections, math, and web search."
         );
 
     }
@@ -3730,14 +4406,18 @@ function think(originalText) {
     // WHAT IS MY
     // ======================================
 
-    if (
+    const memoryQuestionPrefix =
         matchesPrefix(
             text,
             [
                 "what is my",
                 "tell me my"
             ]
-        )
+        );
+
+
+    if (
+        memoryQuestionPrefix
     ) {
 
         const words =
@@ -3746,15 +4426,19 @@ function think(originalText) {
             );
 
 
-        const prefix =
-            words[0] === "tell"
-                ? 2
-                : 3;
+        const prefixWords =
+            normalizeText(
+                memoryQuestionPrefix
+            )
+                .split(
+                    /\s+/
+                )
+                .length;
 
 
         const key =
             words
-                .slice(prefix)
+                .slice(prefixWords)
                 .join(" ")
                 .trim();
 
@@ -3763,6 +4447,31 @@ function think(originalText) {
             cleanMemoryKey(
                 key
             );
+
+
+        // FIX:
+        // "what is my" should not become
+        // "I don't remember your yet."
+
+        if (
+            !cleanKey
+        ) {
+
+            setConfidence(
+                "low"
+            );
+
+
+            setMood(
+                "confused"
+            );
+
+
+            return (
+                "What would you like me to remember about you?"
+            );
+
+        }
 
 
         const value =
@@ -3996,70 +4705,13 @@ function think(originalText) {
     // ======================================
 
     if (
-        matchesPrefix(
-            text,
-            [
-                "forget my",
-                "forget"
-            ]
+        isForgetRequest(
+            text
         )
     ) {
 
-        const words =
-            text.split(
-                /\s+/
-            );
-
-
-        const startsWithMy =
-            words[1] === "my";
-
-
-        const key =
-            words
-                .slice(
-                    startsWithMy
-                        ? 2
-                        : 1
-                )
-                .join(" ")
-                .trim();
-
-
-        const cleanKey =
-            cleanMemoryKey(
-                key
-            );
-
-
-        if (
-            Object.prototype.hasOwnProperty.call(
-                memory,
-                cleanKey
-            )
-        ) {
-
-            delete memory[
-                cleanKey
-            ];
-
-
-            saveMemory();
-
-
-            return (
-                "Okay, I forgot your " +
-                cleanKey +
-                "."
-            );
-
-        }
-
-
-        return (
-            "I don't have a memory about your " +
-            cleanKey +
-            "."
+        return handleForget(
+            text
         );
 
     }
@@ -4081,10 +4733,8 @@ function think(originalText) {
 
     if (
         contextTopic &&
-        (
-            text.includes("it") ||
-            text.includes("that") ||
-            text.includes("this")
+        hasDirectContextReference(
+            text
         )
     ) {
 
@@ -4778,6 +5428,14 @@ function think(originalText) {
     // ======================================
     // MATH
     // ======================================
+    //
+    // Preserved from 0.8.
+    //
+    // NOTE:
+    // Function() is still used here because this
+    // version only allows a strict numeric
+    // character whitelist.
+    // ======================================
 
     if (
         /^[0-9+\-*/().\s]+$/.test(
@@ -4829,10 +5487,7 @@ function think(originalText) {
     // SIMPLE "WHAT IS"
     // ======================================
     //
-    // This is deliberately VERY late.
-    //
-    // Specific questions must have already
-    // been handled above.
+    // Deliberately VERY late.
     // ======================================
 
     if (
@@ -5029,7 +5684,7 @@ function resolveContextReference(text) {
 
 
     const previousUser =
-        getLastUserMessage();
+        getPreviousUserMessage();
 
 
     if (
@@ -5054,6 +5709,108 @@ function resolveContextReference(text) {
 
 
     return null;
+
+}
+
+
+// ==========================================
+// PREVIOUS USER MESSAGE
+// ==========================================
+//
+// Unlike getLastUserMessage(), this skips
+// the current user message when it is already
+// stored in conversationContext.
+// ==========================================
+
+function getPreviousUserMessage() {
+
+    let foundCurrent = false;
+
+
+    for (
+        let i = conversationContext.length - 1;
+        i >= 0;
+        i--
+    ) {
+
+        if (
+            conversationContext[i].role !==
+            "user"
+        ) {
+
+            continue;
+
+        }
+
+
+        if (
+            !foundCurrent
+        ) {
+
+            foundCurrent = true;
+
+            continue;
+
+        }
+
+
+        return conversationContext[i].text;
+
+    }
+
+
+    return "";
+
+}
+
+
+// ==========================================
+// DIRECT CONTEXT REFERENCE
+// ==========================================
+//
+// Avoid treating every occurrence of "it",
+// "this", or "that" as a follow-up.
+//
+// We primarily care about questions such as:
+// - what is it
+// - tell me about it
+// - what do you like about it
+// - what is that
+// ==========================================
+
+function hasDirectContextReference(text) {
+
+    const normalized =
+        normalizeText(text);
+
+
+    const directPatterns = [
+
+        /\bwhat is (?:it|that|this)\b/,
+
+        /\bwhat was (?:it|that|this)\b/,
+
+        /\btell me about (?:it|that|this)\b/,
+
+        /\bwhat do you like about (?:it|that|this)\b/,
+
+        /\bwhat do you think about (?:it|that|this)\b/,
+
+        /\bwhat about (?:it|that|this)\b/,
+
+        /\bwhy is (?:it|that|this)\b/,
+
+        /\bhow is (?:it|that|this)\b/
+
+    ];
+
+
+    return directPatterns.some(
+        pattern =>
+            pattern.test(
+                normalized
+            )
+    );
 
 }
 
@@ -5286,12 +6043,34 @@ async function sendMessage() {
             );
 
 
+        // FIX:
+        // "search" / "google" now explicitly
+        // asks the user for a topic.
         if (
-            query
+            !query
         ) {
 
-            aiMessage.textContent =
-                "Searching... 🌐";
+            const response =
+                "What would you like me to search for? 🌐";
+
+
+            displayAIResponse(
+                aiMessage,
+                response
+            );
+
+
+            lastResponse =
+                response;
+
+
+            lastQuestion =
+                originalText;
+
+
+            setConfidence(
+                "high"
+            );
 
 
             setMood(
@@ -5299,72 +6078,10 @@ async function sendMessage() {
             );
 
 
-            const result =
-                await searchWeb(
-                    query
-                );
-
-
-            if (
-                result.success &&
-                result.available
-            ) {
-
-                const response =
-                    formatSearchResults(
-                        query,
-                        result
-                    );
-
-
-                displayAIResponse(
-                    aiMessage,
-                    response
-                );
-
-
-                lastResponse =
-                    response;
-
-
-                setConfidence(
-                    "high"
-                );
-
-
-                addContext(
-                    "ai",
-                    response
-                );
-
-            } else {
-
-                displayAIResponse(
-                    aiMessage,
-                    "The search service is currently unavailable. 🌐"
-                );
-
-
-                lastResponse =
-                    aiMessage.textContent;
-
-
-                setConfidence(
-                    "low"
-                );
-
-
-                setMood(
-                    "confused"
-                );
-
-
-                addContext(
-                    "ai",
-                    lastResponse
-                );
-
-            }
+            addContext(
+                "ai",
+                response
+            );
 
 
             messages.scrollTop =
@@ -5374,6 +6091,102 @@ async function sendMessage() {
             return;
 
         }
+
+
+        aiMessage.textContent =
+            "Searching... 🌐";
+
+
+        setMood(
+            "curious"
+        );
+
+
+        const result =
+            await searchWeb(
+                query
+            );
+
+
+        if (
+            result.success &&
+            result.available
+        ) {
+
+            const response =
+                formatSearchResults(
+                    query,
+                    result
+                );
+
+
+            displayAIResponse(
+                aiMessage,
+                response
+            );
+
+
+            lastResponse =
+                response;
+
+
+            lastQuestion =
+                originalText;
+
+
+            setConfidence(
+                "high"
+            );
+
+
+            addContext(
+                "ai",
+                response
+            );
+
+        } else {
+
+            const response =
+                "The search service is currently unavailable. 🌐";
+
+
+            displayAIResponse(
+                aiMessage,
+                response
+            );
+
+
+            lastResponse =
+                response;
+
+
+            lastQuestion =
+                originalText;
+
+
+            setConfidence(
+                "low"
+            );
+
+
+            setMood(
+                "confused"
+            );
+
+
+            addContext(
+                "ai",
+                response
+            );
+
+        }
+
+
+        messages.scrollTop =
+            messages.scrollHeight;
+
+
+        return;
 
     }
 
@@ -5432,9 +6245,8 @@ async function sendMessage() {
     }
 
 
-    // If this was a favorite question,
-    // explicitly remember its subject
-    // as the current conversation topic.
+    // Favorite questions explicitly set
+    // their subject as the topic.
 
     const favoriteSubject =
         getFavoriteSubject(
@@ -5511,7 +6323,7 @@ function clearChat() {
 
 
     welcome.textContent =
-        "Hello! I'm Liminal AI 0.8.";
+        "Hello! I'm Liminal AI 0.8.1.";
 
 
     messages.appendChild(
@@ -5681,9 +6493,16 @@ async function liminalRespond(
             );
 
 
+        // FIX:
+        // Empty search requests no longer fall
+        // into the generic think() system.
         if (
-            query
+            !query
         ) {
+
+            const response =
+                "What would you like me to search for? 🌐";
+
 
             addContext(
                 "user",
@@ -5691,72 +6510,113 @@ async function liminalRespond(
             );
 
 
-            const result =
-                await searchWeb(
-                    query
-                );
-
-
-            if (
-                result.success &&
-                result.available
-            ) {
-
-                const response =
-                    formatSearchResults(
-                        query,
-                        result
-                    );
-
-
-                lastResponse =
-                    response;
-
-
-                setConfidence(
-                    "high"
-                );
-
-
-                setMood(
-                    "curious"
-                );
-
-
-                addContext(
-                    "ai",
-                    response
-                );
-
-
-                return response;
-
-            }
-
-
             lastResponse =
-                "The search service is currently unavailable. 🌐";
+                response;
+
+
+            lastQuestion =
+                text;
 
 
             setConfidence(
-                "low"
+                "high"
             );
 
 
             setMood(
-                "confused"
+                "curious"
             );
 
 
             addContext(
                 "ai",
-                lastResponse
+                response
             );
 
 
-            return lastResponse;
+            return response;
 
         }
+
+
+        addContext(
+            "user",
+            text
+        );
+
+
+        const result =
+            await searchWeb(
+                query
+            );
+
+
+        if (
+            result.success &&
+            result.available
+        ) {
+
+            const response =
+                formatSearchResults(
+                    query,
+                    result
+                );
+
+
+            lastResponse =
+                response;
+
+
+            lastQuestion =
+                text;
+
+
+            setConfidence(
+                "high"
+            );
+
+
+            setMood(
+                "curious"
+            );
+
+
+            addContext(
+                "ai",
+                response
+            );
+
+
+            return response;
+
+        }
+
+
+        lastResponse =
+            "The search service is currently unavailable. 🌐";
+
+
+        lastQuestion =
+            text;
+
+
+        setConfidence(
+            "low"
+        );
+
+
+        setMood(
+            "confused"
+        );
+
+
+        addContext(
+            "ai",
+            lastResponse
+        );
+
+
+        return lastResponse;
 
     }
 
@@ -5779,6 +6639,10 @@ async function liminalRespond(
 
     lastResponse =
         response;
+
+
+    lastQuestion =
+        text;
 
 
     addContext(
@@ -5997,7 +6861,7 @@ function initializeLiminal() {
 
 
     console.log(
-        "🤖 Liminal AI 0.8 initialized."
+        "🤖 Liminal AI 0.8.1 initialized."
     );
 
 }
