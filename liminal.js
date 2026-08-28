@@ -1,3 +1,4 @@
+
 // ==========================================
 // LIMINAL AI 0.8.1
 // liminal.js
@@ -34,6 +35,11 @@
 // - Preserved favorite-part routing
 // - Preserved generic "what is" routing
 // - Preserved memory compatibility
+//
+// 0.8.1 INTERACTIONS
+// - Added bro/bruh/btuh slang normalization
+// - Added Bob interaction
+// - Added Johnson interaction
 // ==========================================
 
 
@@ -627,8 +633,6 @@ function detectMoodFromMessage(text) {
 // "id" -> "i would"
 // "r"  -> "are"
 //
-// Those can corrupt legitimate memory.
-//
 // We only normalize actual informal forms.
 // ==========================================
 
@@ -732,7 +736,31 @@ function normalizeText(text) {
 
         "ur": "your",
         "u": "you",
-        "ya": "you"
+        "ya": "you",
+
+        // ==================================
+        // SLANG
+        // ==================================
+        //
+        // These intentionally normalize to
+        // "bro" so Liminal can understand
+        // different spellings of the same slang.
+        //
+
+        "bruh": "bro",
+        "bruhh": "bro",
+        "bruhhh": "bro",
+        "bruhhhh": "bro",
+
+        "btuh": "bro",
+        "btu": "bro",
+
+        "broo": "bro",
+        "brooo": "bro",
+        "broooo": "bro",
+
+        "brah": "bro",
+        "brahh": "bro"
 
     };
 
@@ -760,6 +788,27 @@ function normalizeText(text) {
             );
 
     }
+
+
+    // Handle stretched slang that uses
+    // many repeated letters.
+    //
+    // Example:
+    // broooooooo -> bro
+    // bruhhhhhhhh -> bro
+    //
+    text =
+        text.replace(
+            /\bbr+u+h+\b/g,
+            "bro"
+        );
+
+
+    text =
+        text.replace(
+            /\bbro{2,}\b/g,
+            "bro"
+        );
 
 
     return text
@@ -1658,10 +1707,6 @@ async function searchWeb(query) {
 // ==========================================
 // MEMORY KEY DETECTION
 // ==========================================
-//
-// Uses normalized text first, then fuzzy
-// matching for common memory categories.
-// ==========================================
 
 function findMemoryKey(text) {
 
@@ -1756,8 +1801,6 @@ function findMemoryKey(text) {
     ];
 
 
-    // Exact / substring detection first.
-
     for (
         const item of memoryPatterns
     ) {
@@ -1782,8 +1825,6 @@ function findMemoryKey(text) {
 
     }
 
-
-    // Fuzzy phrase detection second.
 
     for (
         const item of memoryPatterns
@@ -1820,17 +1861,6 @@ function findMemoryKey(text) {
 
 // ==========================================
 // CORRECTIONS
-// ==========================================
-//
-// IMPORTANT:
-//
-// "actually I think pizza is great"
-//
-// should NOT automatically become a correction.
-//
-// We only treat "actually" as correction
-// language when the message contains a
-// recognizable correction structure.
 // ==========================================
 
 function isCorrection(text) {
@@ -1899,8 +1929,6 @@ function isCorrection(text) {
     }
 
 
-    // "No, that's wrong..."
-
     if (
         /^no\s*,\s*(that is|you are|this is)?/.test(
             normalized
@@ -1919,15 +1947,6 @@ function isCorrection(text) {
 
     }
 
-
-    // ======================================
-    // ACTUALLY
-    // ======================================
-    //
-    // Only treat "actually" as a correction
-    // when it introduces recognizable
-    // correction information.
-    // ======================================
 
     if (
         normalized.startsWith(
@@ -2084,10 +2103,6 @@ function handleCorrection(text) {
         );
 
 
-    // ======================================
-    // "I MEANT..."
-    // ======================================
-
     if (
         correctionText.startsWith(
             "i meant "
@@ -2163,10 +2178,6 @@ function handleCorrection(text) {
     }
 
 
-    // ======================================
-    // "I MEAN..."
-    // ======================================
-
     if (
         correctionText.startsWith(
             "i mean "
@@ -2241,10 +2252,6 @@ function handleCorrection(text) {
 
     }
 
-
-    // ======================================
-    // "MY X IS Y"
-    // ======================================
 
     if (
         correctionText.startsWith(
@@ -2330,10 +2337,6 @@ function handleCorrection(text) {
 
     }
 
-
-    // ======================================
-    // "IT IS X"
-    // ======================================
 
     if (
         lastTopic &&
@@ -2625,10 +2628,6 @@ function answerFavoriteQuestion(
     );
 
 
-    // ======================================
-    // MINECRAFT
-    // ======================================
-
     if (
         normalizedSubject === "minecraft" ||
         normalizedSubject.includes(
@@ -2643,10 +2642,6 @@ function answerFavoriteQuestion(
     }
 
 
-    // ======================================
-    // ROBLOX
-    // ======================================
-
     if (
         normalizedSubject === "roblox"
     ) {
@@ -2657,10 +2652,6 @@ function answerFavoriteQuestion(
 
     }
 
-
-    // ======================================
-    // CODING
-    // ======================================
 
     if (
         normalizedSubject === "coding" ||
@@ -2674,10 +2665,6 @@ function answerFavoriteQuestion(
     }
 
 
-    // ======================================
-    // PYTHON
-    // ======================================
-
     if (
         normalizedSubject === "python"
     ) {
@@ -2688,10 +2675,6 @@ function answerFavoriteQuestion(
 
     }
 
-
-    // ======================================
-    // JAVASCRIPT
-    // ======================================
 
     if (
         normalizedSubject === "javascript"
@@ -2704,10 +2687,6 @@ function answerFavoriteQuestion(
     }
 
 
-    // ======================================
-    // GENERAL
-    // ======================================
-
     return (
         "I'd probably say my favorite part about " +
         subject +
@@ -2719,16 +2698,6 @@ function answerFavoriteQuestion(
 
 // ==========================================
 // FORGET DETECTION
-// ==========================================
-//
-// This replaces the dangerous:
-//
-// matchesPrefix(text, ["forget my", "forget"])
-//
-// "forget about it" is normal conversation,
-// not necessarily a memory command.
-//
-// We require a meaningful memory target.
 // ==========================================
 
 function isForgetRequest(text) {
@@ -2777,7 +2746,6 @@ function isForgetRequest(text) {
     }
 
 
-    // Common conversational phrases.
     const normalConversationTargets = [
 
         "about it",
@@ -2800,9 +2768,6 @@ function isForgetRequest(text) {
         )
     ) {
 
-        // "forget that" can be a memory
-        // command only when it clearly refers
-        // to something stored.
         if (
             target === "that" &&
             lastTopic
@@ -2818,7 +2783,6 @@ function isForgetRequest(text) {
     }
 
 
-    // "forget my favorite color"
     if (
         target.startsWith(
             "my "
@@ -2830,7 +2794,6 @@ function isForgetRequest(text) {
     }
 
 
-    // Known memory keys.
     const knownMemoryKey =
         findMemoryKey(
             "what is my " +
@@ -2847,13 +2810,6 @@ function isForgetRequest(text) {
     }
 
 
-    // Generic explicit target.
-    //
-    // This allows:
-    // forget favorite color
-    // forget my favorite game
-    // forget location
-    //
     return (
         target.length >= 2
     );
@@ -2900,10 +2856,6 @@ function handleForget(text) {
 
     }
 
-
-    // ======================================
-    // Resolve known memory categories.
-    // ======================================
 
     const knownKey =
         findMemoryKey(
@@ -3043,6 +2995,120 @@ function think(originalText) {
         setMood(
             "neutral"
         );
+
+    }
+
+
+    // ======================================
+    // SPECIAL LIMINAL INTERACTIONS
+    // ======================================
+    //
+    // These happen BEFORE normal routing.
+    // That makes them deliberate personality
+    // interactions rather than generic unknown
+    // questions.
+    //
+    // Bob:
+    // "bob" -> "he blinked"
+    //
+    // Johnson:
+    // "johnson" -> "He's bald and weird."
+    //
+    // ======================================
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "bob"
+            ],
+            {
+                allowExtraWords: false
+            }
+        )
+    ) {
+
+        setMood(
+            "playful"
+        );
+
+
+        return (
+            "He blinked. 👁️"
+        );
+
+    }
+
+
+    if (
+        matchesIntent(
+            text,
+            [
+                "johnson"
+            ],
+            {
+                allowExtraWords: false
+            }
+        )
+    ) {
+
+        setMood(
+            "playful"
+        );
+
+
+        return (
+            "He's bald and weird. 🗿"
+        );
+
+    }
+
+
+    // ======================================
+    // BRO / BRUH
+    // ======================================
+    //
+    // normalizeText() converts:
+    // bro
+    // bruh
+    // btuh
+    // broooo
+    // bruhhhh
+    // brah
+    // etc.
+    //
+    // into:
+    // "bro"
+    //
+    // This gives Liminal a dedicated
+    // understanding of the slang rather than
+    // depending completely on fuzzy matching.
+    // ======================================
+
+    if (
+        text === "bro"
+    ) {
+
+        setMood(
+            "playful"
+        );
+
+
+        return randomResponse([
+
+            "Bro. 😭",
+
+            "Yeah, bro?",
+
+            "Brooo. 😭",
+
+            "What is it, bro? 😭",
+
+            "I'm listening, bro. 😎",
+
+            "Bro 💀"
+
+        ]);
 
     }
 
@@ -4449,10 +4515,6 @@ function think(originalText) {
             );
 
 
-        // FIX:
-        // "what is my" should not become
-        // "I don't remember your yet."
-
         if (
             !cleanKey
         ) {
@@ -4727,10 +4789,6 @@ function think(originalText) {
         );
 
 
-    // ======================================
-    // IT FOLLOW-UP
-    // ======================================
-
     if (
         contextTopic &&
         hasDirectContextReference(
@@ -4746,8 +4804,6 @@ function think(originalText) {
             "curious"
         );
 
-
-        // "what do you like about it"
 
         if (
             text.includes(
@@ -5428,14 +5484,6 @@ function think(originalText) {
     // ======================================
     // MATH
     // ======================================
-    //
-    // Preserved from 0.8.
-    //
-    // NOTE:
-    // Function() is still used here because this
-    // version only allows a strict numeric
-    // character whitelist.
-    // ======================================
 
     if (
         /^[0-9+\-*/().\s]+$/.test(
@@ -5485,9 +5533,6 @@ function think(originalText) {
 
     // ======================================
     // SIMPLE "WHAT IS"
-    // ======================================
-    //
-    // Deliberately VERY late.
     // ======================================
 
     if (
@@ -5716,11 +5761,6 @@ function resolveContextReference(text) {
 // ==========================================
 // PREVIOUS USER MESSAGE
 // ==========================================
-//
-// Unlike getLastUserMessage(), this skips
-// the current user message when it is already
-// stored in conversationContext.
-// ==========================================
 
 function getPreviousUserMessage() {
 
@@ -5766,16 +5806,6 @@ function getPreviousUserMessage() {
 
 // ==========================================
 // DIRECT CONTEXT REFERENCE
-// ==========================================
-//
-// Avoid treating every occurrence of "it",
-// "this", or "that" as a follow-up.
-//
-// We primarily care about questions such as:
-// - what is it
-// - tell me about it
-// - what do you like about it
-// - what is that
 // ==========================================
 
 function hasDirectContextReference(text) {
@@ -6043,9 +6073,6 @@ async function sendMessage() {
             );
 
 
-        // FIX:
-        // "search" / "google" now explicitly
-        // asks the user for a topic.
         if (
             !query
         ) {
@@ -6244,9 +6271,6 @@ async function sendMessage() {
 
     }
 
-
-    // Favorite questions explicitly set
-    // their subject as the topic.
 
     const favoriteSubject =
         getFavoriteSubject(
@@ -6493,9 +6517,6 @@ async function liminalRespond(
             );
 
 
-        // FIX:
-        // Empty search requests no longer fall
-        // into the generic think() system.
         if (
             !query
         ) {
@@ -6792,18 +6813,10 @@ function initializeLiminal() {
     updateMoodUI();
 
 
-    // ======================================
-    // BACKEND CHECKS
-    // ======================================
-
     testBackend();
 
     getBackendInfo();
 
-
-    // ======================================
-    // RESTORED CONTEXT
-    // ======================================
 
     if (
         conversationContext.length
