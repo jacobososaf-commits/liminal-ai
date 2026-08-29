@@ -11,9 +11,30 @@
 
 <body>
 
+    <!-- ==========================================
+         LIMINAL 0.9 USERNAME
+         ========================================== -->
+
+    <script>
+
+        // Get the optional username saved by login.html.
+        //
+        // If there isn't one, that's completely fine.
+        // Liminal will work normally.
+
+        const liminalUsername =
+            localStorage.getItem("liminalUsername");
+
+        window.LiminalUsername =
+            liminalUsername || null;
+
+    </script>
+
+
     <div id="chat">
 
         <!-- HEADER -->
+
         <header id="header">
 
             <div id="title">
@@ -28,9 +49,13 @@
 
 
         <!-- MESSAGES -->
+
         <main id="messages">
 
-            <div class="ai welcome">
+            <div
+                class="ai welcome"
+                id="welcomeMessage"
+            >
                 Hello, I'm Liminal AI.
             </div>
 
@@ -38,6 +63,7 @@
 
 
         <!-- INPUT -->
+
         <footer id="inputArea">
 
             <input
@@ -85,6 +111,33 @@
 
         const messages =
             document.getElementById("messages");
+
+
+        // ==========================================
+        // CURRENT USER
+        // ==========================================
+
+        const currentUsername =
+            window.LiminalUsername || null;
+
+
+        // ==========================================
+        // PERSONALIZED WELCOME
+        // ==========================================
+
+        const welcomeMessage =
+            document.getElementById("welcomeMessage");
+
+
+        if (
+            welcomeMessage &&
+            currentUsername
+        ) {
+
+            welcomeMessage.textContent =
+                `Hello ${currentUsername}, I'm Liminal AI.`;
+
+        }
 
 
         // ==========================================
@@ -145,7 +198,10 @@
             const title =
                 document.getElementById("title");
 
-            if (currentAI === "aurora") {
+
+            if (
+                currentAI === "aurora"
+            ) {
 
                 title.textContent =
                     "Aurora";
@@ -156,6 +212,7 @@
                     "Liminal AI";
 
             }
+
         }
 
 
@@ -167,6 +224,7 @@
 
             const raw =
                 input.value.trim();
+
 
             if (!raw) return;
 
@@ -189,11 +247,13 @@
                 currentAI =
                     "aurora";
 
+
                 addMessage(
                     "You",
                     raw,
                     "user"
                 );
+
 
                 if (
                     window.Aurora &&
@@ -205,13 +265,16 @@
 
                 }
 
+
                 updateAIName();
+
 
                 addMessage(
                     "Aurora",
                     "Hello. I'm Aurora. 🌌",
                     "ai"
                 );
+
 
                 return;
             }
@@ -228,19 +291,23 @@
                 currentAI =
                     "liminal";
 
+
                 addMessage(
                     "You",
                     raw,
                     "user"
                 );
 
+
                 updateAIName();
+
 
                 addMessage(
                     "Liminal AI",
                     "Hello! I'm Liminal AI 0.8.",
                     "ai"
                 );
+
 
                 return;
             }
@@ -311,6 +378,7 @@
                                 raw
                             );
 
+
                         text.textContent =
                             response;
 
@@ -328,6 +396,7 @@
                         error
                     );
 
+
                     text.textContent =
                         "Aurora encountered an error.";
 
@@ -336,6 +405,7 @@
 
                 messages.scrollTop =
                     messages.scrollHeight;
+
 
                 return;
             }
@@ -381,16 +451,15 @@
             try {
 
                 // ==================================
-                // FIX:
-                // Use Liminal's public responder
-                // instead of calling think() directly.
+                // USE LIMINAL'S PUBLIC RESPONDER
                 //
-                // This allows:
-                // - Local Liminal thinking
+                // This keeps:
                 // - Memory
                 // - Corrections
                 // - Math
                 // - Web search
+                // - Mood
+                // - Existing logic
                 // ==================================
 
                 if (
@@ -418,6 +487,7 @@
                     error
                 );
 
+
                 text.textContent =
                     "Liminal AI encountered an error.";
 
@@ -426,6 +496,7 @@
 
             messages.scrollTop =
                 messages.scrollHeight;
+
         }
 
 
@@ -485,8 +556,19 @@
                 welcome.className =
                     "ai welcome";
 
-                welcome.textContent =
-                    "Hello, I'm Liminal AI.";
+
+                if (currentUsername) {
+
+                    welcome.textContent =
+                        `Hello ${currentUsername}, I'm Liminal AI.`;
+
+                } else {
+
+                    welcome.textContent =
+                        "Hello, I'm Liminal AI.";
+
+                }
+
 
                 messages.appendChild(
                     welcome
@@ -514,11 +596,14 @@
         const themeButton =
             document.createElement("button");
 
+
         themeButton.id =
             "themeButton";
 
+
         themeButton.type =
             "button";
+
 
         themeButton.textContent =
             "☀️";
@@ -574,6 +659,7 @@
             document.body.classList.add(
                 "light-mode"
             );
+
 
             themeButton.textContent =
                 "🌙";
