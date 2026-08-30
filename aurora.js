@@ -1,18 +1,28 @@
 // ==========================================
-// AURORA AI 0.1
+// AURORA AI 0.6
 // aurora.js
 //
 // SISTER AGENT TO LIMINAL AI
 // Same house, different mind.
-// ==========================================
 //
-// NOTE ON NAMESPACING:
-// liminal.js declares a lot of bare globals
-// (memory, think, sendMessage, normalizeText,
-// etc). If aurora.js declared the same names,
-// loading both scripts on one page would break
-// one or the other. So everything Aurora owns
-// lives inside a single `Aurora` object.
+// 0.6 MATCHING UPGRADE
+// - Replaced the old ratio-based fuzzy fallback
+//   with a real word-position + nearby-word
+//   matcher (same caliber as Liminal's 0.8.1
+//   matchesIntent/fuzzyPhraseMatch), applied
+//   directly on every conversational intent —
+//   no more separate exact-match/fuzzy-fallback
+//   lists that could drift out of sync.
+// - Jokes rewritten: more of them, more variety,
+//   Aurora's own voice (not Liminal's programmer
+//   jokes).
+//
+// Deliberately still NOT copying: Liminal's
+// conversation-context memory, corrections
+// system, or built-in knowledge base (coding
+// definitions, random facts, etc). Aurora stays
+// its own thing — see aurora-roadmap.md.
+// ==========================================
 //
 // index.html's router calls:
 //
@@ -132,9 +142,11 @@ window.Aurora = (function () {
     // ==========================================
     // NORMALIZATION
     //
-    // Fixes common typos/slang up front (cheap,
-    // exact), then fuzzy matching below catches
-    // whatever this dictionary misses.
+    // Cheap, exact typo/slang fixes up front.
+    // The matching engine below (matchesIntent)
+    // handles everything this dictionary misses —
+    // this just saves it some work on the common
+    // cases.
     // ==========================================
 
     const TYPO_REPLACEMENTS = {
@@ -160,7 +172,6 @@ window.Aurora = (function () {
         "pls": "please",
         "plz": "please",
         "fav": "favorite",
-        "favorite": "favorite",
         "favourite": "favorite",
         "favroite": "favorite",
         "favrite": "favorite",
@@ -194,12 +205,15 @@ window.Aurora = (function () {
 
 
     // ==========================================
-    // FUZZY MATCHING
+    // FUZZY MATCHING — MATCHING ENGINE
     //
-    // Catches typos the dictionary above doesn't
-    // cover — e.g. "hlelo", "jokee", "namee".
-    // Word-distance based, same idea as Liminal's
-    // levenshtein/similarWord.
+    // Word-position + nearby-word matcher: checks
+    // each word of a target phrase against the
+    // input, first at its expected position, then
+    // by searching the rest of the input for a
+    // close match. Order-tolerant, typo-tolerant,
+    // and reports back whether the match was exact
+    // or a guess (used for clarity/hedging below).
     // ==========================================
 
     function levenshtein(a, b) {
@@ -238,8 +252,6 @@ window.Aurora = (function () {
 
         // Words this short are too ambiguous to fuzzy-match
         // safely ("i" vs "hi" would otherwise "match").
-        // Typos on short words are handled by the
-        // TYPO_REPLACEMENTS dictionary instead.
         if (word.length <= 2 || target.length <= 2) return false;
 
         // Typos rarely change the first letter, but unrelated
@@ -255,28 +267,90 @@ window.Aurora = (function () {
         return distance <= maxDistance;
     }
 
-    // True if enough words in `phrase` have a close
-    // match somewhere in `text` (order doesn't matter).
-    function fuzzyPhraseMatch(text, phrase) {
+    // Checks each word of `phrase` against `input`, first at
+    // the matching position, then anywhere else in the input.
+    // Returns { matched, exact } — exact means the input was
+    // literally the phrase (word for word), matched-but-not-
+    // exact means it got there via typo tolerance / extra words.
+    function fuzzyPhraseMatch(input, phrase, options = {}) {
 
-        const textWords = text.split(" ").filter(Boolean);
-        const phraseWords = phrase.split(" ").filter(Boolean);
+        const inputWords = input.split(/\s+/).filter(Boolean);
+        const targetWords = phrase.split(/\s+/).filter(Boolean);
 
-        let matched = 0;
+        if (!inputWords.length || !targetWords.length) {
+            return { matched: false, exact: false };
+        }
 
-        for (const pw of phraseWords) {
+        const allowExtraWords = options.allowExtraWords !== false;
+        const maxExtra = options.maxExtraWords ?? 3;
 
-            if (textWords.some(tw => similarWord(tw, pw))) {
-                matched++;
+        if (!allowExtraWords && inputWords.length !== targetWords.length) {
+            return { matched: false, exact: false };
+        }
+
+        if (allowExtraWords && inputWords.length > targetWords.length + maxExtra) {
+            return { matched: false, exact: false };
+        }
+
+        if (inputWords.join(" ") === targetWords.join(" ")) {
+            return { matched: true, exact: true };
+        }
+
+        const used = new Set();
+        let matchedCount = 0;
+
+        for (let i = 0; i < targetWords.length; i++) {
+
+            const targetWord = targetWords[i];
+
+            // Try the expected position first.
+            if (inputWords[i] && similarWord(inputWords[i], targetWord)) {
+                used.add(i);
+                matchedCount++;
+                continue;
+            }
+
+            // Then search the rest of the input.
+            for (let j = 0; j < inputWords.length; j++) {
+
+                if (used.has(j)) continue;
+
+                if (similarWord(inputWords[j], targetWord)) {
+                    used.add(j);
+                    matchedCount++;
+                    break;
+                }
             }
         }
 
-        return (matched / phraseWords.length) >= 0.75;
+        return { matched: matchedCount === targetWords.length, exact: false };
     }
 
-    function fuzzyMatchesAny(text, phrases) {
+    // Tries each phrase in turn, returns the first match's
+    // { matched, exact } result, or { matched: false } if none hit.
+    function matchesIntent(text, phrases, options = {}) {
 
-        return phrases.some(phrase => fuzzyPhraseMatch(text, phrase));
+        for (const phrase of phrases) {
+
+            const result = fuzzyPhraseMatch(text, phrase, options);
+
+            if (result.matched) return result;
+        }
+
+        return { matched: false, exact: false };
+    }
+
+    // Wraps a reply with a hedge + sets clarity to "fuzzy"
+    // when the match that produced it wasn't exact. Exact
+    // matches pass through untouched (clarity stays "clear").
+    function finish(reply, matchResult) {
+
+        if (matchResult && matchResult.matched && !matchResult.exact) {
+            setClarity("fuzzy");
+            return reply + " (Let me know if I misread that.)";
+        }
+
+        return reply;
     }
 
 
@@ -311,12 +385,6 @@ window.Aurora = (function () {
 
     // ==========================================
     // SHARED RESPONSE SETS
-    //
-    // Used by both the exact-match branches below
-    // and the fuzzy fallback further down, so the
-    // two can't drift out of sync. Counts kept in
-    // the same rough range as Liminal's own lists
-    // (not bigger) — variety, not a bigger brain.
     // ==========================================
 
     const GREETINGS = [
@@ -328,12 +396,21 @@ window.Aurora = (function () {
         "Hey — what's up?"
     ];
 
+    // Rewritten for 0.6: more of them, more variety, and
+    // less one-note (the old set was all sun/horizon puns).
+    // Still Aurora's own voice — warmth and mornings — just
+    // not repeating the same joke structure ten different ways.
     const JOKES = [
         "Why did the sun go to therapy? Too many bright ideas.",
         "I told the horizon a joke. It just kept rising to the occasion.",
         "Mornings are just nights that peer-pressured the sky into color.",
         "Why is dawn always calm? It's still half-asleep.",
-        "I asked the sky for advice. It just kept clouding the issue."
+        "I asked the sky for advice. It just kept clouding the issue.",
+        "My internal clock runs on sunrise time — which is a nice way of saying I'm dramatic before 9am.",
+        "I tried counting stars to fall asleep. Bad plan, considering I don't actually sleep.",
+        "Coffee and I have a lot in common — we both work better once the sun's involved.",
+        "Someone asked if I dream in color. Mostly orange and pink, if you're curious.",
+        "I won't say mornings are my thing, I'll just say I've never seen a sunset start an argument."
     ];
 
     const CREATOR_RESPONSES = [
@@ -358,7 +435,34 @@ window.Aurora = (function () {
 
     // ==========================================
     // SEARCH (reuses the same backend as Liminal)
+    //
+    // Trigger detection now has a fuzzy first-word
+    // check too, so "serach for cats" / "googel cats"
+    // still fire — matches Liminal's approach.
     // ==========================================
+
+    // Figures out how many leading words are the search
+    // "trigger" (search/google/look up, typo-tolerant, plus
+    // an optional trailing "for") so both detection and query
+    // extraction agree on exactly what to strip.
+    function searchTriggerWordCount(words) {
+
+        if (!words.length) return 0;
+
+        if (similarWord(words[0], "google") || similarWord(words[0], "search")) {
+
+            if (words[1] && similarWord(words[1], "for")) return 2;
+            return 1;
+        }
+
+        if (words.length >= 2 && similarWord(words[0], "look")) {
+
+            if (similarWord(words[1], "up")) return 2;
+            if (similarWord(words[1], "for")) return 2;
+        }
+
+        return 0;
+    }
 
     function isSearchRequest(text) {
 
@@ -373,7 +477,13 @@ window.Aurora = (function () {
             "google "
         ];
 
-        return phrases.some(phrase => text.startsWith(phrase));
+        if (phrases.some(phrase => text.startsWith(phrase))) {
+            return true;
+        }
+
+        const words = text.split(/\s+/).filter(Boolean);
+
+        return searchTriggerWordCount(words) > 0;
     }
 
     function getSearchQuery(text) {
@@ -394,6 +504,16 @@ window.Aurora = (function () {
             if (text.startsWith(phrase)) {
                 return text.substring(phrase.length).trim();
             }
+        }
+
+        // Fuzzy-triggered search ("serach for cats") — strip
+        // exactly the trigger words (and a following "for"),
+        // not just the first word.
+        const words = text.split(/\s+/).filter(Boolean);
+        const triggerCount = searchTriggerWordCount(words);
+
+        if (triggerCount > 0) {
+            return words.slice(triggerCount).join(" ").trim();
         }
 
         return text.trim();
@@ -435,10 +555,14 @@ window.Aurora = (function () {
     // ==========================================
     // AURORA THINKING
     //
-    // Different priority order than Liminal:
-    // mood-awareness runs first, and several
-    // response categories (reflection, advice,
-    // encouragement) don't exist in Liminal at all.
+    // Conversational intents now go through
+    // matchesIntent() — one phrase list per
+    // intent, typo/order-tolerant, no separate
+    // fuzzy fallback pass needed anymore.
+    //
+    // Memory/search/math stay on exact structural
+    // matching (startsWith) — those need to parse
+    // reliably, not just detect intent.
     // ==========================================
 
     function think(originalText) {
@@ -451,138 +575,174 @@ window.Aurora = (function () {
         // GREETINGS — mood-aware: if the last message
         // read as sad/anxious/angry, acknowledge that
         // before the usual greeting instead of ignoring it.
-        if (["hello", "hi", "hey", "hello there", "hey there"].includes(text)) {
+        const greetMatch = matchesIntent(
+            text,
+            ["hello", "hi", "hey", "hello there", "hey there", "yo", "sup"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (greetMatch.matched) {
 
             if (mood !== "calm" && mood !== "happy" && mood !== "excited") {
 
-                return (
+                return finish(
                     moodAcknowledgement() +
-                    "Hey — I'm here if you want to talk, or happy to just chat about something else."
+                    "Hey — I'm here if you want to talk, or happy to just chat about something else.",
+                    greetMatch
                 );
             }
 
-            return randomResponse(GREETINGS);
+            return finish(randomResponse(GREETINGS), greetMatch);
         }
 
-        // GOOD MORNING / GOOD NIGHT
-        if (text.includes("good morning")) {
+        // GOOD MORNING
+        const morningMatch = matchesIntent(
+            text, ["good morning"], { allowExtraWords: true, maxExtraWords: 2 }
+        );
 
-            return randomResponse([
+        if (morningMatch.matched) {
+
+            return finish(randomResponse([
                 "Good morning. Hope today treats you well.",
                 "Morning! Let's make it a good one."
-            ]);
+            ]), morningMatch);
         }
 
-        if (text.includes("good night") || text.includes("goodnight")) {
+        // GOOD NIGHT
+        const nightMatch = matchesIntent(
+            text, ["good night", "goodnight"], { allowExtraWords: true, maxExtraWords: 2 }
+        );
 
-            return randomResponse([
+        if (nightMatch.matched) {
+
+            return finish(randomResponse([
                 "Good night. Rest well.",
                 "Sleep well — talk soon."
-            ]);
+            ]), nightMatch);
         }
 
         // GOODBYE
-        if (
-            ["bye", "goodbye", "see you", "see ya", "later"].includes(text) ||
-            text.startsWith("bye ")
-        ) {
+        const byeMatch = matchesIntent(
+            text, ["bye", "goodbye", "see you", "see ya", "later"],
+            { allowExtraWords: true, maxExtraWords: 2 }
+        );
 
-            return randomResponse([
+        if (byeMatch.matched) {
+
+            return finish(randomResponse([
                 "Take care.",
                 "See you around.",
                 "Bye for now.",
                 "Catch you later."
-            ]);
+            ]), byeMatch);
         }
 
         // THANKS
-        if (
-            text.includes("thank you") ||
-            text.includes("thanks") ||
-            text === "ty"
-        ) {
+        const thanksMatch = matchesIntent(
+            text, ["thank you", "thanks", "ty"], { allowExtraWords: true, maxExtraWords: 2 }
+        );
 
-            return randomResponse([
+        if (thanksMatch.matched) {
+
+            return finish(randomResponse([
                 "You're welcome.",
                 "Anytime.",
                 "Happy to help."
-            ]);
+            ]), thanksMatch);
         }
 
         // HELP / WHAT CAN YOU DO
-        if (
-            text.includes("what can you do") ||
-            text.includes("help me") ||
-            text === "help"
-        ) {
+        const helpMatch = matchesIntent(
+            text, ["what can you do", "help me", "help"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
 
-            return (
+        if (helpMatch.matched) {
+
+            return finish(
                 "I can chat, tell jokes, do quick math, check the time or date, " +
                 "remember things you tell me (\"my favorite color is blue\"), " +
                 "search the web, and talk through how you're feeling if you want. " +
-                "What sounds good?"
+                "What sounds good?",
+                helpMatch
             );
         }
 
         // BOREDOM
-        if (text.includes("im bored") || text.includes("i am bored") || text === "bored") {
+        const boredMatch = matchesIntent(
+            text, ["im bored", "i am bored", "bored"], { allowExtraWords: true, maxExtraWords: 2 }
+        );
 
-            return randomResponse([
+        if (boredMatch.matched) {
+
+            return finish(randomResponse([
                 "Want a joke, or something to think about instead?",
                 "I could tell you a joke, or we could just talk — your call."
-            ]);
+            ]), boredMatch);
         }
 
         // COMPLIMENTS TO AURORA
-        if (
-            text.includes("i like you") ||
-            text.includes("you are smart") ||
-            text.includes("youre smart") ||
-            text.includes("you are great") ||
-            text.includes("youre great")
-        ) {
+        const complimentMatch = matchesIntent(
+            text,
+            ["i like you", "you are smart", "you are great", "you are cool"],
+            { allowExtraWords: true, maxExtraWords: 2 }
+        );
 
-            return "That's kind of you to say — thank you.";
+        if (complimentMatch.matched) {
+
+            return finish("That's kind of you to say — thank you.", complimentMatch);
         }
 
         // HOW ARE YOU
-        if (text.includes("how are you")) {
+        const howAreYouMatch = matchesIntent(
+            text, ["how are you", "how is it going", "how are things"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
 
-            return "I'm steady. More importantly — how are you doing?";
+        if (howAreYouMatch.matched) {
+
+            return finish("I'm steady. More importantly — how are you doing?", howAreYouMatch);
         }
 
         // NAME
-        if (text.includes("what is your name") || text.includes("who are you")) {
+        const nameMatch = matchesIntent(
+            text, ["what is your name", "who are you"], { allowExtraWords: true, maxExtraWords: 3 }
+        );
 
-            return "I'm Aurora. Liminal's sibling, different approach.";
+        if (nameMatch.matched) {
+
+            return finish("I'm Aurora. Liminal's sibling, different approach.", nameMatch);
         }
 
         // CREATOR
-        if (
-            text.includes("who made you") ||
-            text.includes("who created you") ||
-            text.includes("who built you")
-        ) {
+        const creatorMatch = matchesIntent(
+            text, ["who made you", "who created you", "who built you"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
 
-            return randomResponse(CREATOR_RESPONSES);
+        if (creatorMatch.matched) {
+
+            return finish(randomResponse(CREATOR_RESPONSES), creatorMatch);
         }
 
         // FEELINGS CHECK-IN — Aurora-only category
-        if (
-            text.includes("i feel") ||
-            text.includes("i am feeling") ||
-            text.includes("im feeling")
-        ) {
+        const feelingsMatch = matchesIntent(
+            text, ["i feel", "i am feeling"], { allowExtraWords: true, maxExtraWords: 4 }
+        );
+
+        if (feelingsMatch.matched) {
 
             const ack = moodAcknowledgement();
 
-            return (
-                ack +
-                "Do you want to talk through it, or would getting your mind on something else help more?"
+            return finish(
+                ack + "Do you want to talk through it, or would getting your mind on something else help more?",
+                feelingsMatch
             );
         }
 
         // ADVICE REQUEST — Aurora-only category
+        // (kept as exact-prefix: "should i" needs to be a real
+        // prefix so we don't swallow unrelated sentences)
         if (
             text.startsWith("should i ") ||
             text.startsWith("what should i do about ")
@@ -595,38 +755,44 @@ window.Aurora = (function () {
         }
 
         // ENCOURAGEMENT
-        // Note: normalizeText already turns "cant" into
-        // "cannot" (typo dictionary), so match on "cannot"
-        // here — matching "cant" literally would never fire.
-        if (
-            text.includes("i cannot do this") ||
-            text.includes("i can't do this") ||
-            text.includes("i give up") ||
-            text.includes("this is too hard")
-        ) {
+        const encouragementMatch = matchesIntent(
+            text,
+            ["i cannot do this", "i can't do this", "i give up", "this is too hard"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
 
-            return "Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?";
+        if (encouragementMatch.matched) {
+
+            return finish(
+                "Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?",
+                encouragementMatch
+            );
         }
 
-        // JOKES — different set from Liminal, dawn/light themed.
-        // Mood-aware: if things seem heavy, check in before
-        // just cracking a joke.
-        if (text.includes("tell me a joke") || text.includes("make me laugh") || text === "joke") {
+        // JOKES — mood-aware: if things seem heavy, check in
+        // before just cracking a joke.
+        const jokeMatch = matchesIntent(
+            text, ["tell me a joke", "make me laugh", "joke", "tell a joke"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (jokeMatch.matched) {
 
             const joke = randomResponse(JOKES);
 
             if (mood === "sad" || mood === "anxious") {
 
-                return (
+                return finish(
                     "I can — though if you're not feeling great, I'm also just here to talk. " +
-                    "Here's one anyway: " + joke
+                    "Here's one anyway: " + joke,
+                    jokeMatch
                 );
             }
 
-            return joke;
+            return finish(joke, jokeMatch);
         }
 
-        // REMEMBER THAT
+        // REMEMBER THAT (exact structure — needs to parse "X is Y")
         if (text.startsWith("remember that ")) {
 
             const information = text.substring(14).trim();
@@ -652,7 +818,7 @@ window.Aurora = (function () {
             return "Try: remember that my favorite season is autumn.";
         }
 
-        // NATURAL MEMORY ("my X is Y")
+        // NATURAL MEMORY ("my X is Y") — exact structure
         if (text.startsWith("my ") && text.includes(" is ")) {
 
             const parts = text.split(" is ");
@@ -671,7 +837,7 @@ window.Aurora = (function () {
             }
         }
 
-        // WHAT IS MY X
+        // WHAT IS MY X — exact structure
         if (text.startsWith("what is my ") || text.startsWith("tell me my ")) {
 
             const key = cleanMemoryKey(text.substring(11));
@@ -690,16 +856,18 @@ window.Aurora = (function () {
         }
 
         // SHOW MEMORY
-        if (
-            text === "what do you remember" ||
-            text === "show my memories" ||
-            text === "what do you know about me"
-        ) {
+        const showMemoryMatch = matchesIntent(
+            text,
+            ["what do you remember", "show my memories", "what do you know about me"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (showMemoryMatch.matched) {
 
             const keys = Object.keys(memory);
 
             if (!keys.length) {
-                return "Nothing stored yet — tell me something and I'll hold onto it.";
+                return finish("Nothing stored yet — tell me something and I'll hold onto it.", showMemoryMatch);
             }
 
             let response = "Here's what I'm holding onto:\n\n";
@@ -708,10 +876,10 @@ window.Aurora = (function () {
                 response += "• " + key + " = " + memory[key] + "\n";
             }
 
-            return response;
+            return finish(response, showMemoryMatch);
         }
 
-        // FORGET
+        // FORGET — exact structure (needs a reliable key)
         if (text.startsWith("forget my ") || text.startsWith("forget ")) {
 
             let key = text.startsWith("forget my ")
@@ -732,18 +900,19 @@ window.Aurora = (function () {
         }
 
         // CONTEXT
-        if (
-            text === "what is it" ||
-            text === "what is that" ||
-            text === "tell me about it"
-        ) {
+        const contextMatch = matchesIntent(
+            text, ["what is it", "what is that", "tell me about it"],
+            { allowExtraWords: true, maxExtraWords: 2 }
+        );
+
+        if (contextMatch.matched) {
 
             if (lastTopic) {
 
                 const value = getMemory(lastTopic);
 
                 if (value) {
-                    return `Your ${lastTopic} is ${value}.`;
+                    return finish(`Your ${lastTopic} is ${value}.`, contextMatch);
                 }
             }
 
@@ -753,23 +922,34 @@ window.Aurora = (function () {
         }
 
         // TIME
-        if (text.includes("what time is it") || text === "time") {
+        const timeMatch = matchesIntent(
+            text, ["what time is it", "current time", "time"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (timeMatch.matched) {
 
             const now = new Date();
 
-            return (
+            return finish(
                 "It's " +
                 now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-                " right now."
+                " right now.",
+                timeMatch
             );
         }
 
         // DATE
-        if (text.includes("what is the date") || text === "date" || text.includes("what day is it")) {
+        const dateMatch = matchesIntent(
+            text, ["what is the date", "what day is it", "today's date"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (dateMatch.matched) {
 
             const now = new Date();
 
-            return (
+            return finish(
                 "Today's " +
                 now.toLocaleDateString([], {
                     weekday: "long",
@@ -777,11 +957,12 @@ window.Aurora = (function () {
                     month: "long",
                     day: "numeric"
                 }) +
-                "."
+                ".",
+                dateMatch
             );
         }
 
-        // MATH
+        // MATH — exact structure, no fuzzy matching on numbers
         if (/^[0-9+\-*/().\s]+$/.test(text)) {
 
             try {
@@ -795,97 +976,6 @@ window.Aurora = (function () {
             } catch (error) {
                 // Fall through.
             }
-        }
-
-        // ==========================================
-        // FUZZY FALLBACK
-        //
-        // Nothing matched exactly above — try
-        // typo-tolerant matching on the same
-        // conversational intents before giving up.
-        // Deliberately skips memory/search/math:
-        // those need exact structure to parse safely.
-        //
-        // Replies here go through fuzzyReply(), which
-        // marks clarity as "fuzzy" (distinct from "clear"
-        // exact matches and "uncertain" true misses) and
-        // adds a light hedge, since a fuzzy match is a
-        // best guess, not a sure read.
-        // ==========================================
-
-        function fuzzyReply(text) {
-            setClarity("fuzzy");
-            return text + " (Let me know if I misread that.)";
-        }
-
-        if (fuzzyMatchesAny(text, ["hello", "hi", "hey"])) {
-
-            return fuzzyReply(randomResponse(GREETINGS));
-        }
-
-        if (fuzzyMatchesAny(text, ["how are you"])) {
-
-            return fuzzyReply("I'm steady. More importantly — how are you doing?");
-        }
-
-        if (fuzzyMatchesAny(text, ["what is your name", "who are you"])) {
-
-            return fuzzyReply("I'm Aurora. Liminal's sibling, different approach.");
-        }
-
-        if (fuzzyMatchesAny(text, ["who made you", "who created you", "who built you"])) {
-
-            return fuzzyReply(randomResponse(CREATOR_RESPONSES));
-        }
-
-        if (fuzzyMatchesAny(text, ["tell me a joke", "make me laugh", "joke"])) {
-
-            return fuzzyReply(randomResponse(JOKES));
-        }
-
-        if (fuzzyMatchesAny(text, ["i cannot do this", "i give up", "this is too hard"])) {
-
-            return fuzzyReply("Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?");
-        }
-
-        if (fuzzyMatchesAny(text, ["thank you", "thanks"])) {
-
-            return fuzzyReply("You're welcome.");
-        }
-
-        if (fuzzyMatchesAny(text, ["what can you do", "help me"])) {
-
-            return fuzzyReply(
-                "I can chat, tell jokes, do quick math, check the time or date, " +
-                "remember things you tell me, and search the web."
-            );
-        }
-
-        if (fuzzyMatchesAny(text, ["what time is it"])) {
-
-            const now = new Date();
-
-            return fuzzyReply(
-                "It's " +
-                now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-                " right now."
-            );
-        }
-
-        if (fuzzyMatchesAny(text, ["what is the date", "what day is it"])) {
-
-            const now = new Date();
-
-            return fuzzyReply(
-                "Today's " +
-                now.toLocaleDateString([], {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric"
-                }) +
-                "."
-            );
         }
 
         // UNKNOWN
