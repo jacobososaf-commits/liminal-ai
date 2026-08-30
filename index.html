@@ -5,16 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <title>Liminal AI</title>
 
-<title>Liminal AI</title>
-
-<link rel="stylesheet" href="style.css">
-
-
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
 
 <!-- ==========================================
      LIMINAL 0.9 USER SESSION
@@ -143,6 +139,46 @@
 
 
     // ==========================================
+    // RANDOM LIMINAL GREETING
+    // ==========================================
+
+    function getRandomGreeting(username) {
+
+        const greetings = [
+
+            `Hello ${username}, I'm Liminal AI.`,
+
+            `Hey ${username}! What are we doing today?`,
+
+            `Yo ${username} 👋 What are we working on?`,
+
+            `Welcome back, ${username}. What's on your mind?`,
+
+            `Hey ${username}! Ready to build something? 🔥`,
+
+            `So, ${username}... what are we getting into today?`,
+
+            `I'm here, ${username}. What's up?`,
+
+            `What's up, ${username}? 😎`,
+
+            `Hey ${username}! What can I help you with today?`,
+
+            `Welcome back, ${username}. `
+
+        ];
+
+
+        return greetings[
+            Math.floor(
+                Math.random() * greetings.length
+            )
+        ];
+
+    }
+
+
+    // ==========================================
     // PERSONALIZED WELCOME
     // ==========================================
 
@@ -152,7 +188,9 @@
     ) {
 
         welcomeMessage.textContent =
-            `Hello ${currentUsername}, I'm Liminal AI.`;
+            getRandomGreeting(
+                currentUsername
+            );
 
     }
 
@@ -203,6 +241,7 @@
 
         messages.scrollTop =
             messages.scrollHeight;
+
     }
 
 
@@ -275,6 +314,7 @@
 
 
         return textElement;
+
     }
 
 
@@ -339,6 +379,7 @@
 
 
             return;
+
         }
 
 
@@ -370,6 +411,7 @@
 
 
             return;
+
         }
 
 
@@ -439,6 +481,7 @@
 
 
             return;
+
         }
 
 
@@ -563,7 +606,9 @@
             if (currentUsername) {
 
                 welcome.textContent =
-                    `Hello ${currentUsername}, I'm Liminal AI.`;
+                    getRandomGreeting(
+                        currentUsername
+                    );
 
             } else {
 
