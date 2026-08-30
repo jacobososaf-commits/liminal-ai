@@ -1,321 +1,314 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Liminal AI</title>
 
-    <link rel="stylesheet" href="style.css">
+<title>Liminal AI</title>
+
+<link rel="stylesheet" href="style.css">
+
+
 </head>
 
 <body>
 
-    <!-- ==========================================
-         LIMINAL 0.9 USERNAME
-         ========================================== -->
 
-    <script>
+<!-- ==========================================
+     LIMINAL 0.9 USER SESSION
+     ========================================== -->
 
-        // Get the optional username saved by login.html.
-        //
-        // If there isn't one, that's completely fine.
-        // Liminal will work normally.
+<script>
+    /*
+     * Check whether the user has logged in.
+     *
+     * If no username exists, send them to login.html.
+     */
 
-        const liminalUsername =
-            localStorage.getItem("liminalUsername");
+    const savedUsername =
+        localStorage.getItem("liminalUsername");
 
-        window.LiminalUsername =
-            liminalUsername || null;
+    if (!savedUsername || !savedUsername.trim()) {
+        window.location.replace("login.html");
+    }
 
-    </script>
-
-
-    <div id="chat">
-
-        <!-- HEADER -->
-
-        <header id="header">
-
-            <div id="title">
-                Liminal AI
-            </div>
-
-            <div id="status">
-                ● Online
-            </div>
-
-        </header>
+    window.LiminalUsername =
+        savedUsername || null;
+</script>
 
 
-        <!-- MESSAGES -->
+<!-- ==========================================
+     CHAT
+     ========================================== -->
 
-        <main id="messages">
+<div id="chat">
 
-            <div
-                class="ai welcome"
-                id="welcomeMessage"
-            >
-                Hello, I'm Liminal AI.
-            </div>
+    <!-- HEADER -->
 
-        </main>
+    <header id="header">
 
+        <div id="title">
+            Liminal AI
+        </div>
 
-        <!-- INPUT -->
+        <div id="status">
+            ● Online
+        </div>
 
-        <footer id="inputArea">
-
-            <input
-                id="userInput"
-                type="text"
-                placeholder="Message Liminal AI..."
-                autocomplete="off"
-            >
-
-            <button
-                id="sendButton"
-                type="button">
-                Send
-            </button>
-
-            <button
-                id="clearButton"
-                type="button">
-                Clear
-            </button>
-
-        </footer>
-
-    </div>
+    </header>
 
 
-    <!-- ================================
-         AI FILES
-         ================================ -->
+    <!-- MESSAGES -->
 
-    <script src="liminal.js"></script>
-    <script src="aurora.js"></script>
+    <main id="messages">
 
+        <div
+            class="ai welcome"
+            id="welcomeMessage"
+        >
+            Hello, I'm Liminal AI.
+        </div>
 
-    <script>
-
-        const input =
-            document.getElementById("userInput");
-
-        const sendButton =
-            document.getElementById("sendButton");
-
-        const clearButton =
-            document.getElementById("clearButton");
-
-        const messages =
-            document.getElementById("messages");
+    </main>
 
 
-        // ==========================================
-        // CURRENT USER
-        // ==========================================
+    <!-- INPUT -->
 
-        const currentUsername =
-            window.LiminalUsername || null;
+    <footer id="inputArea">
+
+        <input
+            id="userInput"
+            type="text"
+            placeholder="Message Liminal AI..."
+            autocomplete="off"
+        >
+
+        <button
+            id="sendButton"
+            type="button"
+        >
+            Send
+        </button>
+
+        <button
+            id="clearButton"
+            type="button"
+        >
+            Clear
+        </button>
+
+    </footer>
+
+</div>
 
 
-        // ==========================================
-        // PERSONALIZED WELCOME
-        // ==========================================
+<!-- ==========================================
+     AI FILES
+     ========================================== -->
 
-        const welcomeMessage =
-            document.getElementById("welcomeMessage");
+<script src="liminal.js"></script>
+<script src="aurora.js"></script>
 
 
-        if (
-            welcomeMessage &&
-            currentUsername
-        ) {
+<script>
 
-            welcomeMessage.textContent =
-                `Hello ${currentUsername}, I'm Liminal AI.`;
+    // ==========================================
+    // ELEMENTS
+    // ==========================================
+
+    const input =
+        document.getElementById("userInput");
+
+    const sendButton =
+        document.getElementById("sendButton");
+
+    const clearButton =
+        document.getElementById("clearButton");
+
+    const messages =
+        document.getElementById("messages");
+
+    const welcomeMessage =
+        document.getElementById("welcomeMessage");
+
+
+    // ==========================================
+    // CURRENT USER
+    // ==========================================
+
+    const currentUsername =
+        window.LiminalUsername || null;
+
+
+    // ==========================================
+    // PERSONALIZED WELCOME
+    // ==========================================
+
+    if (
+        welcomeMessage &&
+        currentUsername
+    ) {
+
+        welcomeMessage.textContent =
+            `Hello ${currentUsername}, I'm Liminal AI.`;
+
+    }
+
+
+    // ==========================================
+    // CURRENT AI
+    // ==========================================
+
+    let currentAI = "liminal";
+
+
+    // ==========================================
+    // ADD MESSAGE
+    // ==========================================
+
+    function addMessage(name, text, type) {
+
+        const message =
+            document.createElement("div");
+
+        message.className = type;
+
+
+        const nameElement =
+            document.createElement("div");
+
+        nameElement.className =
+            "message-name";
+
+        nameElement.textContent =
+            name;
+
+
+        const textElement =
+            document.createElement("div");
+
+        textElement.className =
+            "message-text";
+
+        textElement.textContent =
+            text;
+
+
+        message.appendChild(nameElement);
+        message.appendChild(textElement);
+
+        messages.appendChild(message);
+
+        messages.scrollTop =
+            messages.scrollHeight;
+    }
+
+
+    // ==========================================
+    // UPDATE HEADER
+    // ==========================================
+
+    function updateAIName() {
+
+        const title =
+            document.getElementById("title");
+
+
+        if (currentAI === "aurora") {
+
+            title.textContent =
+                "Aurora";
+
+        } else {
+
+            title.textContent =
+                "Liminal AI";
 
         }
 
-
-        // ==========================================
-        // CURRENT AI
-        // ==========================================
-
-        let currentAI = "liminal";
+    }
 
 
-        // ==========================================
-        // ADD MESSAGE
-        // ==========================================
+    // ==========================================
+    // CREATE THINKING MESSAGE
+    // ==========================================
 
-        function addMessage(name, text, type) {
+    function createThinkingMessage(name) {
 
-            const message =
-                document.createElement("div");
+        const ai =
+            document.createElement("div");
 
-            message.className = type;
-
-
-            const nameElement =
-                document.createElement("div");
-
-            nameElement.className =
-                "message-name";
-
-            nameElement.textContent =
-                name;
+        ai.className =
+            "ai";
 
 
-            const textElement =
-                document.createElement("div");
+        const nameElement =
+            document.createElement("div");
 
-            textElement.className =
-                "message-text";
+        nameElement.className =
+            "message-name";
 
-            textElement.textContent =
-                text;
+        nameElement.textContent =
+            name;
 
 
-            message.appendChild(nameElement);
-            message.appendChild(textElement);
+        const textElement =
+            document.createElement("div");
 
-            messages.appendChild(message);
+        textElement.className =
+            "message-text";
 
-            messages.scrollTop =
-                messages.scrollHeight;
+        textElement.textContent =
+            "Thinking... 🤔";
+
+
+        ai.appendChild(nameElement);
+        ai.appendChild(textElement);
+
+        messages.appendChild(ai);
+
+
+        messages.scrollTop =
+            messages.scrollHeight;
+
+
+        return textElement;
+    }
+
+
+    // ==========================================
+    // ROUTE MESSAGE
+    // ==========================================
+
+    async function routeMessage() {
+
+        const raw =
+            input.value.trim();
+
+
+        if (!raw) {
+            return;
         }
 
 
-        // ==========================================
-        // UPDATE HEADER
-        // ==========================================
-
-        function updateAIName() {
-
-            const title =
-                document.getElementById("title");
+        const command =
+            raw.toLowerCase();
 
 
-            if (
-                currentAI === "aurora"
-            ) {
-
-                title.textContent =
-                    "Aurora";
-
-            } else {
-
-                title.textContent =
-                    "Liminal AI";
-
-            }
-
-        }
+        input.value = "";
 
 
-        // ==========================================
-        // ROUTE MESSAGE
-        // ==========================================
+        // ======================================
+        // SWITCH TO AURORA
+        // ======================================
 
-        async function routeMessage() {
+        if (command === "!aurora") {
 
-            const raw =
-                input.value.trim();
+            currentAI =
+                "aurora";
 
-
-            if (!raw) return;
-
-
-            const command =
-                raw.toLowerCase();
-
-
-            input.value = "";
-
-
-            // ======================================
-            // SWITCH TO AURORA
-            // ======================================
-
-            if (
-                command === "!aurora"
-            ) {
-
-                currentAI =
-                    "aurora";
-
-
-                addMessage(
-                    "You",
-                    raw,
-                    "user"
-                );
-
-
-                if (
-                    window.Aurora &&
-                    typeof window.Aurora.resetState ===
-                    "function"
-                ) {
-
-                    window.Aurora.resetState();
-
-                }
-
-
-                updateAIName();
-
-
-                addMessage(
-                    "Aurora",
-                    "Hello. I'm Aurora. 🌌",
-                    "ai"
-                );
-
-
-                return;
-            }
-
-
-            // ======================================
-            // SWITCH TO LIMINAL
-            // ======================================
-
-            if (
-                command === "!liminal"
-            ) {
-
-                currentAI =
-                    "liminal";
-
-
-                addMessage(
-                    "You",
-                    raw,
-                    "user"
-                );
-
-
-                updateAIName();
-
-
-                addMessage(
-                    "Liminal AI",
-                    "Hello! I'm Liminal AI 0.8.",
-                    "ai"
-                );
-
-
-                return;
-            }
-
-
-            // ======================================
-            // NORMAL MESSAGE
-            // ======================================
 
             addMessage(
                 "You",
@@ -324,172 +317,119 @@
             );
 
 
-            // ======================================
-            // AURORA
-            // ======================================
-
             if (
-                currentAI === "aurora"
+                window.Aurora &&
+                typeof window.Aurora.resetState ===
+                "function"
             ) {
 
-                const ai =
-                    document.createElement("div");
+                window.Aurora.resetState();
 
-                ai.className =
-                    "ai";
-
-
-                const name =
-                    document.createElement("div");
-
-                name.className =
-                    "message-name";
-
-                name.textContent =
-                    "Aurora";
-
-
-                const text =
-                    document.createElement("div");
-
-                text.className =
-                    "message-text";
-
-                text.textContent =
-                    "Thinking... 🤔";
-
-
-                ai.appendChild(name);
-                ai.appendChild(text);
-
-                messages.appendChild(ai);
-
-
-                try {
-
-                    if (
-                        window.Aurora &&
-                        typeof window.Aurora.respond ===
-                        "function"
-                    ) {
-
-                        const response =
-                            await window.Aurora.respond(
-                                raw
-                            );
-
-
-                        text.textContent =
-                            response;
-
-                    } else {
-
-                        text.textContent =
-                            "Aurora is not available.";
-
-                    }
-
-                } catch (error) {
-
-                    console.error(
-                        "Aurora error:",
-                        error
-                    );
-
-
-                    text.textContent =
-                        "Aurora encountered an error.";
-
-                }
-
-
-                messages.scrollTop =
-                    messages.scrollHeight;
-
-
-                return;
             }
 
 
-            // ======================================
-            // LIMINAL
-            // ======================================
-
-            const ai =
-                document.createElement("div");
-
-            ai.className =
-                "ai";
+            updateAIName();
 
 
-            const name =
-                document.createElement("div");
+            addMessage(
+                "Aurora",
+                "Hello. I'm Aurora. 🌌",
+                "ai"
+            );
 
-            name.className =
-                "message-name";
 
-            name.textContent =
-                "Liminal AI";
+            return;
+        }
 
+
+        // ======================================
+        // SWITCH TO LIMINAL
+        // ======================================
+
+        if (command === "!liminal") {
+
+            currentAI =
+                "liminal";
+
+
+            addMessage(
+                "You",
+                raw,
+                "user"
+            );
+
+
+            updateAIName();
+
+
+            addMessage(
+                "Liminal AI",
+                "Hello! I'm Liminal AI 0.8.",
+                "ai"
+            );
+
+
+            return;
+        }
+
+
+        // ======================================
+        // USER MESSAGE
+        // ======================================
+
+        addMessage(
+            "You",
+            raw,
+            "user"
+        );
+
+
+        // ======================================
+        // AURORA
+        // ======================================
+
+        if (currentAI === "aurora") {
 
             const text =
-                document.createElement("div");
-
-            text.className =
-                "message-text";
-
-            text.textContent =
-                "Thinking... 🤔";
-
-
-            ai.appendChild(name);
-            ai.appendChild(text);
-
-            messages.appendChild(ai);
+                createThinkingMessage(
+                    "Aurora"
+                );
 
 
             try {
 
-                // ==================================
-                // USE LIMINAL'S PUBLIC RESPONDER
-                //
-                // This keeps:
-                // - Memory
-                // - Corrections
-                // - Math
-                // - Web search
-                // - Mood
-                // - Existing logic
-                // ==================================
-
                 if (
-                    window.Liminal &&
-                    typeof window.Liminal.respond ===
+                    window.Aurora &&
+                    typeof window.Aurora.respond ===
                     "function"
                 ) {
 
-                    text.textContent =
-                        await window.Liminal.respond(
+                    const response =
+                        await window.Aurora.respond(
                             raw
                         );
+
+
+                    text.textContent =
+                        response;
 
                 } else {
 
                     text.textContent =
-                        "Liminal AI is not available.";
+                        "Aurora is not available.";
 
                 }
 
             } catch (error) {
 
                 console.error(
-                    "Liminal error:",
+                    "Aurora error:",
                     error
                 );
 
 
                 text.textContent =
-                    "Liminal AI encountered an error.";
+                    "Aurora encountered an error.";
 
             }
 
@@ -497,176 +437,240 @@
             messages.scrollTop =
                 messages.scrollHeight;
 
+
+            return;
         }
 
 
-        // ==========================================
-        // SEND BUTTON
-        // ==========================================
+        // ======================================
+        // LIMINAL
+        // ======================================
 
-        sendButton.addEventListener(
-            "click",
-            routeMessage
-        );
-
-
-        // ==========================================
-        // ENTER KEY
-        // ==========================================
-
-        input.addEventListener(
-            "keydown",
-            function(event) {
-
-                if (
-                    event.key === "Enter"
-                ) {
-
-                    event.preventDefault();
-
-                    routeMessage();
-
-                }
-
-            }
-        );
+        const text =
+            createThinkingMessage(
+                "Liminal AI"
+            );
 
 
-        // ==========================================
-        // CLEAR BUTTON
-        // ==========================================
+        try {
 
-        clearButton.addEventListener(
-            "click",
-            function() {
+            /*
+             * IMPORTANT:
+             *
+             * We are still using the existing
+             * Liminal AI engine.
+             *
+             * Nothing here replaces liminal.js.
+             */
 
-                messages.innerHTML = "";
+            if (
+                window.Liminal &&
+                typeof window.Liminal.respond ===
+                "function"
+            ) {
 
-
-                currentAI =
-                    "liminal";
-
-
-                updateAIName();
-
-
-                const welcome =
-                    document.createElement("div");
-
-                welcome.className =
-                    "ai welcome";
-
-
-                if (currentUsername) {
-
-                    welcome.textContent =
-                        `Hello ${currentUsername}, I'm Liminal AI.`;
-
-                } else {
-
-                    welcome.textContent =
-                        "Hello, I'm Liminal AI.";
-
-                }
-
-
-                messages.appendChild(
-                    welcome
-                );
-
-
-                if (
-                    window.Aurora &&
-                    typeof window.Aurora.resetState ===
-                    "function"
-                ) {
-
-                    window.Aurora.resetState();
-
-                }
-
-            }
-        );
-
-
-        // ==========================================
-        // THEME BUTTON
-        // ==========================================
-
-        const themeButton =
-            document.createElement("button");
-
-
-        themeButton.id =
-            "themeButton";
-
-
-        themeButton.type =
-            "button";
-
-
-        themeButton.textContent =
-            "☀️";
-
-
-        document
-            .getElementById("header")
-            .appendChild(themeButton);
-
-
-        themeButton.addEventListener(
-            "click",
-            function() {
-
-                document.body.classList.toggle(
-                    "light-mode"
-                );
-
-
-                const light =
-                    document.body.classList.contains(
-                        "light-mode"
+                const response =
+                    await window.Liminal.respond(
+                        raw
                     );
 
 
-                localStorage.setItem(
-                    "liminalTheme",
-                    light
-                        ? "light"
-                        : "dark"
-                );
+                text.textContent =
+                    response;
 
+            } else {
 
-                themeButton.textContent =
-                    light
-                        ? "🌙Dark"
-                        : "☀️Light";
+                text.textContent =
+                    "Liminal AI is not available.";
 
             }
-        );
+
+        } catch (error) {
+
+            console.error(
+                "Liminal error:",
+                error
+            );
 
 
-        // ==========================================
-        // LOAD THEME
-        // ==========================================
+            text.textContent =
+                "Liminal AI encountered an error.";
 
-        if (
-            localStorage.getItem(
-                "liminalTheme"
-            ) === "light"
-        ) {
+        }
 
-            document.body.classList.add(
+
+        messages.scrollTop =
+            messages.scrollHeight;
+
+    }
+
+
+    // ==========================================
+    // SEND BUTTON
+    // ==========================================
+
+    sendButton.addEventListener(
+        "click",
+        routeMessage
+    );
+
+
+    // ==========================================
+    // ENTER KEY
+    // ==========================================
+
+    input.addEventListener(
+        "keydown",
+        function(event) {
+
+            if (event.key === "Enter") {
+
+                event.preventDefault();
+
+                routeMessage();
+
+            }
+
+        }
+    );
+
+
+    // ==========================================
+    // CLEAR BUTTON
+    // ==========================================
+
+    clearButton.addEventListener(
+        "click",
+        function() {
+
+            messages.innerHTML = "";
+
+
+            currentAI =
+                "liminal";
+
+
+            updateAIName();
+
+
+            const welcome =
+                document.createElement("div");
+
+            welcome.className =
+                "ai welcome";
+
+
+            if (currentUsername) {
+
+                welcome.textContent =
+                    `Hello ${currentUsername}, I'm Liminal AI.`;
+
+            } else {
+
+                welcome.textContent =
+                    "Hello, I'm Liminal AI.";
+
+            }
+
+
+            messages.appendChild(
+                welcome
+            );
+
+
+            if (
+                window.Aurora &&
+                typeof window.Aurora.resetState ===
+                "function"
+            ) {
+
+                window.Aurora.resetState();
+
+            }
+
+        }
+    );
+
+
+    // ==========================================
+    // THEME BUTTON
+    // ==========================================
+
+    const themeButton =
+        document.createElement("button");
+
+
+    themeButton.id =
+        "themeButton";
+
+
+    themeButton.type =
+        "button";
+
+
+    themeButton.textContent =
+        "☀️";
+
+
+    document
+        .getElementById("header")
+        .appendChild(themeButton);
+
+
+    themeButton.addEventListener(
+        "click",
+        function() {
+
+            document.body.classList.toggle(
                 "light-mode"
             );
 
 
+            const light =
+                document.body.classList.contains(
+                    "light-mode"
+                );
+
+
+            localStorage.setItem(
+                "liminalTheme",
+                light
+                    ? "light"
+                    : "dark"
+            );
+
+
             themeButton.textContent =
-                "🌙";
+                light
+                    ? "🌙Dark"
+                    : "☀️Light";
 
         }
+    );
 
-    </script>
+
+    // ==========================================
+    // LOAD THEME
+    // ==========================================
+
+    if (
+        localStorage.getItem(
+            "liminalTheme"
+        ) === "light"
+    ) {
+
+        document.body.classList.add(
+            "light-mode"
+        );
+
+
+        themeButton.textContent =
+            "🌙";
+
+    }
+
+</script>
+
 
 </body>
 </html>
