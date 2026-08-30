@@ -81,6 +81,66 @@ window.Aurora = (function () {
         confused: ["confused", "puzzled", "unsure", "lost"]
     };
 
+    // ==========================================
+    // MOOD HISTORY
+    //
+    // A running, persisted log of how the mood
+    // has shifted across conversations — something
+    // Liminal has no equivalent of at all. Only
+    // logs on an actual change, not every message,
+    // so it reads as a real timeline rather than
+    // noise.
+    // ==========================================
+
+    let moodLog =
+        JSON.parse(
+            localStorage.getItem("auroraMoodLog") || "[]"
+        );
+
+    const MAX_MOOD_LOG = 30;
+
+    function saveMoodLog() {
+        localStorage.setItem(
+            "auroraMoodLog",
+            JSON.stringify(moodLog)
+        );
+    }
+
+    function logMood(newMood) {
+
+        moodLog.push({
+            mood: newMood,
+            time: new Date().toISOString()
+        });
+
+        if (moodLog.length > MAX_MOOD_LOG) {
+            moodLog = moodLog.slice(-MAX_MOOD_LOG);
+        }
+
+        saveMoodLog();
+    }
+
+    function summarizeMoodLog() {
+
+        if (!moodLog.length) {
+            return "I don't have any mood history yet — that builds up as we talk.";
+        }
+
+        const counts = {};
+
+        for (const entry of moodLog) {
+            counts[entry.mood] = (counts[entry.mood] || 0) + 1;
+        }
+
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+        const summary = sorted
+            .map(([m, count]) => `${m} (${count})`)
+            .join(", ");
+
+        return `Across our recent conversations, you've mostly come across as: ${summary}.`;
+    }
+
     function updateMood(text) {
 
         const textWords = text.split(" ").filter(Boolean);
@@ -92,6 +152,11 @@ window.Aurora = (function () {
             );
 
             if (hit) {
+
+                if (key !== mood) {
+                    logMood(key);
+                }
+
                 mood = key;
                 return;
             }
@@ -262,7 +327,16 @@ window.Aurora = (function () {
         if (word.charAt(0) !== target.charAt(0)) return false;
 
         const distance = levenshtein(word, target);
-        const maxDistance = target.length <= 4 ? 1 : 2;
+
+        // Same-length typos are usually a transposition
+        // ("hlelo"/"hello", "craeted"/"created") — tolerate
+        // distance 2 there. Different-length words are more
+        // likely genuinely different words that happen to be
+        // close (e.g. "help" vs "hello" — real bug this caught
+        // in testing), so only tolerate distance 1 there.
+        const maxDistance = word.length === target.length
+            ? (target.length <= 4 ? 1 : 2)
+            : 1;
 
         return distance <= maxDistance;
     }
@@ -651,23 +725,6 @@ window.Aurora = (function () {
             ]), thanksMatch);
         }
 
-        // HELP / WHAT CAN YOU DO
-        const helpMatch = matchesIntent(
-            text, ["what can you do", "help me", "help"],
-            { allowExtraWords: true, maxExtraWords: 3 }
-        );
-
-        if (helpMatch.matched) {
-
-            return finish(
-                "I can chat, tell jokes, do quick math, check the time or date, " +
-                "remember things you tell me (\"my favorite color is blue\"), " +
-                "search the web, and talk through how you're feeling if you want. " +
-                "What sounds good?",
-                helpMatch
-            );
-        }
-
         // BOREDOM
         const boredMatch = matchesIntent(
             text, ["im bored", "i am bored", "bored"], { allowExtraWords: true, maxExtraWords: 2 }
@@ -740,6 +797,61 @@ window.Aurora = (function () {
             );
         }
 
+        // DECISION HELPER — Aurora-only category. Coin flips
+        // and "X or Y" choices. Placed before the generic
+        // advice branch below so "should i pick pizza or
+        // tacos" gets an actual pick, not a vague prompt.
+        const coinFlipMatch = matchesIntent(
+            text, ["flip a coin", "coin flip", "heads or tails"],
+            { allowExtraWords: true, maxExtraWords: 2 }
+        );
+
+        if (coinFlipMatch.matched) {
+
+            return finish(randomResponse(["Heads.", "Tails."]), coinFlipMatch);
+        }
+
+        if (text.includes(" or ")) {
+
+            const stripPatterns = [
+                /^should i\s+/,
+                /^do i\s+/,
+                /^would you\s+/,
+                /^could you\s+/,
+                /^help me decide( between)?\s+/,
+                /^pick\s+/,
+                /^choose\s+/
+            ];
+
+            let cleaned = text.replace(/[?.!]+$/, "");
+            let changed = true;
+
+            while (changed) {
+
+                changed = false;
+
+                for (const pattern of stripPatterns) {
+
+                    if (pattern.test(cleaned)) {
+                        cleaned = cleaned.replace(pattern, "");
+                        changed = true;
+                    }
+                }
+            }
+
+            const options = cleaned
+                .split(" or ")
+                .map(o => o.trim())
+                .filter(Boolean);
+
+            if (options.length >= 2 && options.length <= 5) {
+
+                const choice = randomResponse(options);
+
+                return `If I had to pick, I'd go with ${choice}. Though it's your call.`;
+            }
+        }
+
         // ADVICE REQUEST — Aurora-only category
         // (kept as exact-prefix: "should i" needs to be a real
         // prefix so we don't swallow unrelated sentences)
@@ -766,6 +878,79 @@ window.Aurora = (function () {
             return finish(
                 "Hard doesn't mean impossible — it just means you're not done yet. What's the smallest next step?",
                 encouragementMatch
+            );
+        }
+
+        // MOTIVATION — standalone request, distinct from the
+        // "i can't do this" trigger above (that one reacts to
+        // distress; this is a general ask for a pick-me-up).
+        const motivationMatch = matchesIntent(
+            text,
+            ["motivate me", "give me some encouragement", "i need motivation", "cheer me up"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (motivationMatch.matched) {
+
+            return finish(randomResponse([
+                "You've gotten through every hard day so far — that's a perfect track record.",
+                "Small steps still count as progress. Keep going.",
+                "You don't have to feel ready to start. Just start.",
+                "Whatever it is, you're more capable of it than you think right now."
+            ]), motivationMatch);
+        }
+
+        // MOOD HISTORY — Aurora-only. Liminal has no
+        // equivalent of tracking how the conversation's
+        // tone has shifted over time.
+        const moodHistoryMatch = matchesIntent(
+            text,
+            ["how have i been feeling", "mood history", "how has my mood been", "check my mood"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (moodHistoryMatch.matched) {
+
+            return finish(summarizeMoodLog(), moodHistoryMatch);
+        }
+
+        // GROUNDING — Aurora-only. A simple, generic breathing
+        // prompt on request, not medical advice or a diagnosis
+        // of anything — just a small tool to offer.
+        const calmMatch = matchesIntent(
+            text,
+            ["help me calm down", "i need to calm down", "breathing exercise", "calm me down"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (calmMatch.matched) {
+
+            return finish(
+                "Let's do a slow round of box breathing: in for 4 seconds, hold for 4, out for 4, hold for 4. " +
+                "Repeat that a few times — no rush.",
+                calmMatch
+            );
+        }
+
+        // HELP / WHAT CAN YOU DO
+        // Deliberately checked LATE: "help me" with extra-word
+        // tolerance would otherwise swallow more specific
+        // requests like "help me calm down" before they get a
+        // chance to match their own branch above.
+        const helpMatch = matchesIntent(
+            text, ["what can you do", "help me", "help"],
+            { allowExtraWords: true, maxExtraWords: 3 }
+        );
+
+        if (helpMatch.matched) {
+
+            return finish(
+                "I can chat, tell jokes, do quick math, check the time or date, " +
+                "remember things you tell me (\"my favorite color is blue\"), " +
+                "search the web, help you decide between things or flip a coin, " +
+                "offer a breathing exercise, keep track of how you've been feeling, " +
+                "and talk through it if you want. What sounds good?",
+                helpMatch
             );
         }
 
