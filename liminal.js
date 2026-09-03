@@ -1,13 +1,13 @@
 
 // ==========================================
-// LIMINAL AI 0.8.1
+// LIMINAL AI 0.8.2
 // liminal.js
 //
 // ORIGINAL LIMINAL AI AGENT
 //
-// 0.8.1 BUG FIX UPDATE
+// 0.8.2 BUG FIX UPDATE
 //
-// 0.8 FEATURES PRESERVED
+// 0.8.2 FEATURES PRESERVED
 // - Conversation context
 // - Short-term context memory
 // - Mood system
@@ -22,7 +22,7 @@
 // - Existing confidence preserved
 // - Existing personality preserved
 //
-// 0.8.1 FIXES
+// 0.8.2 FIXES
 // - Fixed "forget" hijacking normal conversation
 // - Fixed "actually" hijacking normal conversation
 // - Removed dangerous "id" normalization collision
@@ -3674,7 +3674,7 @@ function think(originalText) {
     ) {
 
         return (
-            "I'm Liminal AI 0.8.1."
+            "I'm Liminal AI 0.8.2."
         );
 
     }
@@ -3702,7 +3702,7 @@ function think(originalText) {
     ) {
 
         return (
-            "I'm Liminal AI 0.8.1. This is the bug-fix build of 0.8, keeping short-term conversation context, mood, memory, corrections, math, and web search."
+            "I'm Liminal AI 0.8.2. This is the version that changed search from duckduckgo to tavily."
         );
 
     }
@@ -6347,7 +6347,7 @@ function clearChat() {
 
 
     welcome.textContent =
-        "Hello! I'm Liminal AI 0.8.1.";
+        "Hello! I'm Liminal AI 0.8.2.";
 
 
     messages.appendChild(
@@ -6874,7 +6874,7 @@ function initializeLiminal() {
 
 
     console.log(
-        "🤖 Liminal AI 0.8.1 initialized."
+        "🤖 Liminal AI 0.8.2 initialized."
     );
 
 }

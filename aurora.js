@@ -8,7 +8,7 @@
 // 0.6 MATCHING UPGRADE
 // - Replaced the old ratio-based fuzzy fallback
 //   with a real word-position + nearby-word
-//   matcher (same caliber as Liminal's 0.8.1
+//   matcher (same caliber as Liminal's 0.8.2
 //   matchesIntent/fuzzyPhraseMatch), applied
 //   directly on every conversational intent —
 //   no more separate exact-match/fuzzy-fallback
