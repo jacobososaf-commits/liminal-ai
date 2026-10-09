@@ -1,79 +1,37 @@
-<!DOCTYPE html>
 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Liminal AI</title>
-
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<!-- ==========================================
-     LIMINAL 0.9 USER SESSION
-     ========================================== -->
-
 <script>
-    /*
-     * Check whether the user has logged in.
-     *
-     * If no username exists, send them to login.html.
-     */
-
-    const savedUsername =
-        localStorage.getItem("liminalUsername");
+    const savedUsername = localStorage.getItem("liminalUsername");
 
     if (!savedUsername || !savedUsername.trim()) {
         window.location.replace("login.html");
     }
 
-    window.LiminalUsername =
-        savedUsername || null;
+    window.LiminalUsername = savedUsername || null;
 </script>
 
-
-<!-- ==========================================
-     CHAT
-     ========================================== -->
-
 <div id="chat">
-
-    <!-- HEADER -->
-
     <header id="header">
-
-        <div id="title">
-            Liminal AI
-        </div>
-
-        <div id="status">
-            ● Online
-        </div>
-
+        <div id="title">Liminal AI</div>
+        <div id="status">● Online</div>
     </header>
 
-
-    <!-- MESSAGES -->
-
     <main id="messages">
-
-        <div
-            class="ai welcome"
-            id="welcomeMessage"
-        >
+        <div class="ai welcome" id="welcomeMessage">
             Hello, I'm Liminal AI.
         </div>
-
     </main>
 
-
-    <!-- INPUT -->
-
     <footer id="inputArea">
-
         <input
             id="userInput"
             type="text"
@@ -81,641 +39,242 @@
             autocomplete="off"
         >
 
-        <button
-            id="sendButton"
-            type="button"
-        >
-            Send
-        </button>
-
-        <button
-            id="clearButton"
-            type="button"
-        >
-            Clear
-        </button>
-
+        <button id="sendButton" type="button">Send</button>
+        <button id="clearButton" type="button">Clear</button>
     </footer>
-
 </div>
 
-
-<!-- ==========================================
-     AI FILES
-     ========================================== -->
-
+<!-- LOCAL AGENT ENGINES -->
 <script src="liminal.js"></script>
 <script src="aurora.js"></script>
-
+<script src="jen.js"></script>
 
 <script>
+    const input = document.getElementById("userInput");
+    const sendButton = document.getElementById("sendButton");
+    const clearButton = document.getElementById("clearButton");
+    const messages = document.getElementById("messages");
+    const welcomeMessage = document.getElementById("welcomeMessage");
 
-    // ==========================================
-    // ELEMENTS
-    // ==========================================
-
-    const input =
-        document.getElementById("userInput");
-
-    const sendButton =
-        document.getElementById("sendButton");
-
-    const clearButton =
-        document.getElementById("clearButton");
-
-    const messages =
-        document.getElementById("messages");
-
-    const welcomeMessage =
-        document.getElementById("welcomeMessage");
-
-
-    // ==========================================
-    // CURRENT USER
-    // ==========================================
-
-    const currentUsername =
-        window.LiminalUsername || null;
-
-
-    // ==========================================
-    // RANDOM LIMINAL GREETING
-    // ==========================================
+    const currentUsername = window.LiminalUsername || null;
 
     function getRandomGreeting(username) {
-
         const greetings = [
-
             `Hello ${username}, I'm Liminal AI.`,
-
             `Hey ${username}! What are we doing today?`,
-
             `Yo ${username} 👋 What are we working on?`,
-
             `Welcome back, ${username}. What's on your mind?`,
-
             `Hey ${username}! Ready to build something? 🔥`,
-
             `So, ${username}... what are we getting into today?`,
-
             `I'm here, ${username}. What's up?`,
-
             `What's up, ${username}? 😎`,
-
             `Hey ${username}! What can I help you with today?`,
-
-            `Welcome back, ${username}. `
-
+            `Welcome back, ${username}.`
         ];
 
-
-        return greetings[
-            Math.floor(
-                Math.random() * greetings.length
-            )
-        ];
-
+        return greetings[Math.floor(Math.random() * greetings.length)];
     }
 
-
-    // ==========================================
-    // PERSONALIZED WELCOME
-    // ==========================================
-
-    if (
-        welcomeMessage &&
-        currentUsername
-    ) {
-
-        welcomeMessage.textContent =
-            getRandomGreeting(
-                currentUsername
-            );
-
+    if (welcomeMessage && currentUsername) {
+        welcomeMessage.textContent = getRandomGreeting(currentUsername);
     }
-
-
-    // ==========================================
-    // CURRENT AI
-    // ==========================================
 
     let currentAI = "liminal";
 
-
-    // ==========================================
-    // ADD MESSAGE
-    // ==========================================
-
     function addMessage(name, text, type) {
-
-        const message =
-            document.createElement("div");
-
+        const message = document.createElement("div");
         message.className = type;
 
+        const nameElement = document.createElement("div");
+        nameElement.className = "message-name";
+        nameElement.textContent = name;
 
-        const nameElement =
-            document.createElement("div");
-
-        nameElement.className =
-            "message-name";
-
-        nameElement.textContent =
-            name;
-
-
-        const textElement =
-            document.createElement("div");
-
-        textElement.className =
-            "message-text";
-
-        textElement.textContent =
-            text;
-
+        const textElement = document.createElement("div");
+        textElement.className = "message-text";
+        textElement.textContent = text;
 
         message.appendChild(nameElement);
         message.appendChild(textElement);
-
         messages.appendChild(message);
 
-        messages.scrollTop =
-            messages.scrollHeight;
-
+        messages.scrollTop = messages.scrollHeight;
     }
-
-
-    // ==========================================
-    // UPDATE HEADER
-    // ==========================================
 
     function updateAIName() {
+        const title = document.getElementById("title");
 
-        const title =
-            document.getElementById("title");
+        const names = {
+            liminal: "Liminal AI",
+            aurora: "Aurora",
+            jen: "Jen"
+        };
 
-
-        if (currentAI === "aurora") {
-
-            title.textContent =
-                "Aurora";
-
-        } else {
-
-            title.textContent =
-                "Liminal AI";
-
-        }
-
+        title.textContent = names[currentAI] || "Liminal AI";
+        input.placeholder = `Message ${names[currentAI] || "Liminal AI"}...`;
     }
 
-
-    // ==========================================
-    // CREATE THINKING MESSAGE
-    // ==========================================
-
     function createThinkingMessage(name) {
+        const ai = document.createElement("div");
+        ai.className = "ai";
 
-        const ai =
-            document.createElement("div");
+        const nameElement = document.createElement("div");
+        nameElement.className = "message-name";
+        nameElement.textContent = name;
 
-        ai.className =
-            "ai";
-
-
-        const nameElement =
-            document.createElement("div");
-
-        nameElement.className =
-            "message-name";
-
-        nameElement.textContent =
-            name;
-
-
-        const textElement =
-            document.createElement("div");
-
-        textElement.className =
-            "message-text";
-
-        textElement.textContent =
-            "Thinking... 🤔";
-
+        const textElement = document.createElement("div");
+        textElement.className = "message-text";
+        textElement.textContent = "Thinking... 🤔";
 
         ai.appendChild(nameElement);
         ai.appendChild(textElement);
-
         messages.appendChild(ai);
 
-
-        messages.scrollTop =
-            messages.scrollHeight;
-
+        messages.scrollTop = messages.scrollHeight;
 
         return textElement;
-
     }
 
+    function resetAgent(agentName) {
+        const agent = {
+            liminal: window.Liminal,
+            aurora: window.Aurora,
+            jen: window.Jen
+        }[agentName];
 
-    // ==========================================
-    // ROUTE MESSAGE
-    // ==========================================
-
-    async function routeMessage() {
-
-        const raw =
-            input.value.trim();
-
-
-        if (!raw) {
-            return;
+        if (agent && typeof agent.resetState === "function") {
+            agent.resetState();
         }
+    }
 
+    function switchAgent(agentName, raw) {
+        currentAI = agentName;
 
-        const command =
-            raw.toLowerCase();
+        addMessage("You", raw, "user");
+        resetAgent(agentName);
+        updateAIName();
 
-
-        input.value = "";
-
-
-        // ======================================
-        // SWITCH TO AURORA
-        // ======================================
-
-        if (command === "!aurora") {
-
-            currentAI =
-                "aurora";
-
-
-            addMessage(
-                "You",
-                raw,
-                "user"
-            );
-
-
-            if (
-                window.Aurora &&
-                typeof window.Aurora.resetState ===
-                "function"
-            ) {
-
-                window.Aurora.resetState();
-
-            }
-
-
-            updateAIName();
-
-
-            addMessage(
-                "Aurora",
-                "Hello. I'm Aurora. 🌌",
-                "ai"
-            );
-
-
-            return;
-
-        }
-
-
-        // ======================================
-        // SWITCH TO LIMINAL
-        // ======================================
-
-        if (command === "!liminal") {
-
-            currentAI =
-                "liminal";
-
-
-            addMessage(
-                "You",
-                raw,
-                "user"
-            );
-
-
-            updateAIName();
-
-
-            addMessage(
-                "Liminal AI",
-                "Hello! I'm Liminal AI 0.8.2",
-                "ai"
-            );
-
-
-            return;
-
-        }
-
-
-        // ======================================
-        // USER MESSAGE
-        // ======================================
+        const greetings = {
+            liminal: "Hello! I'm Liminal AI 0.8.2",
+            aurora: "Hello. I'm Aurora. 🌌",
+            jen: "Hey! I'm Jen. ✨"
+        };
 
         addMessage(
-            "You",
-            raw,
-            "user"
+            agentName === "liminal" ? "Liminal AI" :
+            agentName === "aurora" ? "Aurora" : "Jen",
+            greetings[agentName],
+            "ai"
         );
+    }
 
+    async function routeMessage() {
+        const raw = input.value.trim();
 
-        // ======================================
-        // AURORA
-        // ======================================
+        if (!raw) return;
 
-        if (currentAI === "aurora") {
+        const command = raw.toLowerCase();
+        input.value = "";
 
-            const text =
-                createThinkingMessage(
-                    "Aurora"
-                );
-
-
-            try {
-
-                if (
-                    window.Aurora &&
-                    typeof window.Aurora.respond ===
-                    "function"
-                ) {
-
-                    const response =
-                        await window.Aurora.respond(
-                            raw
-                        );
-
-
-                    text.textContent =
-                        response;
-
-                } else {
-
-                    text.textContent =
-                        "Aurora is not available.";
-
-                }
-
-            } catch (error) {
-
-                console.error(
-                    "Aurora error:",
-                    error
-                );
-
-
-                text.textContent =
-                    "Aurora encountered an error.";
-
-            }
-
-
-            messages.scrollTop =
-                messages.scrollHeight;
-
-
+        // AGENT SWITCHING
+        if (["!liminal", "!aurora", "!jen"].includes(command)) {
+            const agentName = command.slice(1);
+            switchAgent(agentName, raw);
             return;
-
         }
 
+        addMessage("You", raw, "user");
 
-        // ======================================
-        // LIMINAL
-        // ======================================
+        const agents = {
+            liminal: {
+                label: "Liminal AI",
+                engine: window.Liminal
+            },
+            aurora: {
+                label: "Aurora",
+                engine: window.Aurora
+            },
+            jen: {
+                label: "Jen",
+                engine: window.Jen
+            }
+        };
 
-        const text =
-            createThinkingMessage(
-                "Liminal AI"
-            );
-
+        const selected = agents[currentAI];
+        const text = createThinkingMessage(selected.label);
 
         try {
-
-            /*
-             * IMPORTANT:
-             *
-             * We are still using the existing
-             * Liminal AI engine.
-             *
-             * Nothing here replaces liminal.js.
-             */
-
             if (
-                window.Liminal &&
-                typeof window.Liminal.respond ===
-                "function"
+                selected.engine &&
+                typeof selected.engine.respond === "function"
             ) {
-
-                const response =
-                    await window.Liminal.respond(
-                        raw
-                    );
-
-
-                text.textContent =
-                    response;
-
+                const response = await selected.engine.respond(raw);
+                text.textContent = String(response ?? "");
             } else {
-
                 text.textContent =
-                    "Liminal AI is not available.";
-
+                    `${selected.label} is not available. Check that its JavaScript file loaded correctly.`;
             }
-
         } catch (error) {
-
-            console.error(
-                "Liminal error:",
-                error
-            );
-
-
-            text.textContent =
-                "Liminal AI encountered an error.";
-
+            console.error(`${selected.label} error:`, error);
+            text.textContent = `${selected.label} encountered an error.`;
         }
 
-
-        messages.scrollTop =
-            messages.scrollHeight;
-
+        messages.scrollTop = messages.scrollHeight;
     }
 
+    sendButton.addEventListener("click", routeMessage);
 
-    // ==========================================
-    // SEND BUTTON
-    // ==========================================
-
-    sendButton.addEventListener(
-        "click",
-        routeMessage
-    );
-
-
-    // ==========================================
-    // ENTER KEY
-    // ==========================================
-
-    input.addEventListener(
-        "keydown",
-        function(event) {
-
-            if (event.key === "Enter") {
-
-                event.preventDefault();
-
-                routeMessage();
-
-            }
-
+    input.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            routeMessage();
         }
-    );
+    });
 
+    clearButton.addEventListener("click", function() {
+        messages.innerHTML = "";
+        currentAI = "liminal";
 
-    // ==========================================
-    // CLEAR BUTTON
-    // ==========================================
+        resetAgent("liminal");
+        resetAgent("aurora");
+        resetAgent("jen");
 
-    clearButton.addEventListener(
-        "click",
-        function() {
+        updateAIName();
 
-            messages.innerHTML = "";
+        const welcome = document.createElement("div");
+        welcome.className = "ai welcome";
 
+        welcome.textContent = currentUsername
+            ? getRandomGreeting(currentUsername)
+            : "Hello, I'm Liminal AI.";
 
-            currentAI =
-                "liminal";
+        messages.appendChild(welcome);
+    });
 
-
-            updateAIName();
-
-
-            const welcome =
-                document.createElement("div");
-
-            welcome.className =
-                "ai welcome";
-
-
-            if (currentUsername) {
-
-                welcome.textContent =
-                    getRandomGreeting(
-                        currentUsername
-                    );
-
-            } else {
-
-                welcome.textContent =
-                    "Hello, I'm Liminal AI.";
-
-            }
-
-
-            messages.appendChild(
-                welcome
-            );
-
-
-            if (
-                window.Aurora &&
-                typeof window.Aurora.resetState ===
-                "function"
-            ) {
-
-                window.Aurora.resetState();
-
-            }
-
-        }
-    );
-
-
-    // ==========================================
     // THEME BUTTON
-    // ==========================================
+    const themeButton = document.createElement("button");
+    themeButton.id = "themeButton";
+    themeButton.type = "button";
+    themeButton.textContent = "☀️";
 
-    const themeButton =
-        document.createElement("button");
+    document.getElementById("header").appendChild(themeButton);
 
+    themeButton.addEventListener("click", function() {
+        document.body.classList.toggle("light-mode");
 
-    themeButton.id =
-        "themeButton";
+        const light = document.body.classList.contains("light-mode");
 
+        localStorage.setItem("liminalTheme", light ? "light" : "dark");
+        themeButton.textContent = light ? "🌙Dark" : "☀️Light";
+    });
 
-    themeButton.type =
-        "button";
-
-
-    themeButton.textContent =
-        "☀️";
-
-
-    document
-        .getElementById("header")
-        .appendChild(themeButton);
-
-
-    themeButton.addEventListener(
-        "click",
-        function() {
-
-            document.body.classList.toggle(
-                "light-mode"
-            );
-
-
-            const light =
-                document.body.classList.contains(
-                    "light-mode"
-                );
-
-
-            localStorage.setItem(
-                "liminalTheme",
-                light
-                    ? "light"
-                    : "dark"
-            );
-
-
-            themeButton.textContent =
-                light
-                    ? "🌙Dark"
-                    : "☀️Light";
-
-        }
-    );
-
-
-    // ==========================================
-    // LOAD THEME
-    // ==========================================
-
-    if (
-        localStorage.getItem(
-            "liminalTheme"
-        ) === "light"
-    ) {
-
-        document.body.classList.add(
-            "light-mode"
-        );
-
-
-        themeButton.textContent =
-            "🌙";
-
+    // RESTORE SAVED THEME
+    if (localStorage.getItem("liminalTheme") === "light") {
+        document.body.classList.add("light-mode");
+        themeButton.textContent = "🌙Dark";
     }
 
+    updateAIName();
 </script>
-
 
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "name": "liminal-ai-backend",
-  "version": "0.8.0",
-  "description": "Backend for Liminal AI 0.8",
+  "version": "0.8.2",
+  "description": "Backend for Liminal AI 0.8.2",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
