@@ -1,5 +1,5 @@
 /* ==========================================
-   LIMINAL AI 0.9
+   LIMINAL AI 1.1
    GLASS UI TEST
 ========================================== */
 
@@ -184,7 +184,7 @@ body {
 
 #themeButton:active {
 
-    transform: scale(0.98);
+    transform: scale(1.18);
 }
 
 
@@ -387,7 +387,7 @@ body {
 
     outline: none;
 
-    background: rgba(255, 255, 255, 0.90);
+    background: rgba(255, 255, 255, 1.10);
 
     color: #111;
 
@@ -427,7 +427,7 @@ body {
 
     padding: 0 18px;
 
-    background: rgba(255, 212, 0, 0.90);
+    background: rgba(255, 212, 0, 1.10);
 
     color: black;
 
@@ -453,7 +453,7 @@ body {
 
 #sendButton:hover {
 
-    background: rgba(255, 231, 90, 0.95);
+    background: rgba(255, 231, 90, 1.15);
 
     transform: scale(1.03);
 
@@ -465,7 +465,7 @@ body {
 
 #sendButton:active {
 
-    transform: scale(0.98);
+    transform: scale(1.18);
 }
 
 
@@ -481,7 +481,7 @@ body {
 
     padding: 0 16px;
 
-    background: rgba(255, 212, 0, 0.90);
+    background: rgba(255, 212, 0, 1.10);
 
     color: black;
 
@@ -507,7 +507,7 @@ body {
 
 #clearButton:hover {
 
-    background: rgba(255, 231, 90, 0.95);
+    background: rgba(255, 231, 90, 1.15);
 
     transform: scale(1.03);
 
@@ -519,7 +519,7 @@ body {
 
 #clearButton:active {
 
-    transform: scale(0.98);
+    transform: scale(1.18);
 }
 
 

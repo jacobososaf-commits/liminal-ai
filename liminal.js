@@ -1,8 +1,8 @@
 // ==========================================
 
-// LIMINAL AI 0.9 - liminal.js
+// LIMINAL AI 1.1 - liminal.js
 
-// Cleaned-up version: same features, less code.
+// Decision-tree routing, expanded conversation, and preserved core tools.
 
 //
 
@@ -38,7 +38,7 @@
 
 
 
-const VERSION = "0.10";
+const VERSION = "1.1";
 
 const BACKEND_URL = "https://liminal-ai-backend.onrender.com";
 
@@ -2459,7 +2459,14 @@ const JOKES = [
     "Why do programmers prefer dark mode? Because light attracts bugs. 🐛",
     "Why did the computer get cold? It left its Windows open. 🪟",
     "A SQL query walks into a bar, sees two tables, and asks: “Can I join you?”",
-    "Why was the JavaScript developer sad? They didn't know how to null their feelings. 😭"
+    "Why was the JavaScript developer sad? They didn't know how to null their feelings. 😭",
+    `A programmer's spouse says: "Go to the store and buy a loaf of bread. If they have eggs, buy a dozen." The programmer comes home with twelve loaves. 🥚`,
+    "Why do functions never get lost? They always know where they're called from.",
+    "There are 10 kinds of people: those who understand binary and those who don't. 💻",
+    "Why did the computer go to the doctor? It had a virus.",
+    `I told my computer I needed a break. It said: "No problem, I'll go to sleep." 😴`,
+    "Why was the website so calm? It had good domain control. 🌐",
+    "Debugging: being the detective in a crime movie where you are also the culprit. 🐛"
 ];
 
 async function runTool(command, options = {}) {
@@ -2478,13 +2485,34 @@ async function runTool(command, options = {}) {
         case "time": return getTimeInZone(q);
         case "joke": return JOKES[Math.floor(Math.random()*JOKES.length)];
         case "translate": {
-            const m=q.match(/^(.+?)\s+(?:to|into)\s+([a-zA-Z-]+)\s*$/i);
+            const m = q.match(/^(.+?)\s+(?:to|into)\s+([a-zA-Z-]+)\s*$/i);
             if (!m) return "Use: Translate Hello, how are you? to Spanish";
+            const languageCodes = {
+                english: "en", spanish: "es", french: "fr", german: "de", italian: "it",
+                portuguese: "pt", dutch: "nl", japanese: "ja", korean: "ko", chinese: "zh",
+                russian: "ru", arabic: "ar", hindi: "hi", swedish: "sv", polish: "pl",
+                turkish: "tr", greek: "el", hebrew: "he", ukrainian: "uk", indonesian: "id",
+                vietnamese: "vi", thai: "th", danish: "da", norwegian: "no", finnish: "fi",
+                czech: "cs", romanian: "ro", hungarian: "hu", bengali: "bn", catalan: "ca"
+            };
+            const targetName = m[2].toLowerCase();
+            const targetCode = languageCodes[targetName] || (/^[a-z]{2,3}$/i.test(targetName) ? targetName : null);
+            if (!targetCode) return `I don't recognize the language "${m[2]}" yet. Try a language name such as Spanish or French.`;
             try {
-                const url=`https://api.mymemory.translated.net/get?q=${encodeURIComponent(m[1])}&langpair=autodetect|${encodeURIComponent(m[2])}`;
-                const r=await fetch(url); if(!r.ok) throw new Error(); const d=await r.json();
-                return d.responseData?.translatedText ? `Translation (${m[2]}): ${d.responseData.translatedText}` : "I couldn't translate that text.";
-            } catch { return "The translation service is unavailable right now."; }
+                // MyMemory expects language codes. English is the default source language.
+                const params = new URLSearchParams({ q: m[1], langpair: `en|${targetCode}` });
+                const r = await fetch(`https://api.mymemory.translated.net/get?${params}`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const d = await r.json();
+                const translated = d.responseData?.translatedText;
+                if (d.responseStatus && d.responseStatus !== 200) {
+                    return d.responseDetails || "The translation service couldn't process that text.";
+                }
+                return translated ? `Translation (${m[2]}): ${translated}` : "I couldn't translate that text.";
+            } catch (error) {
+                console.warn("Translate error:", error);
+                return "The translation service is unavailable right now.";
+            }
         }
         case "summarize": {
             if (!q) return "Paste the text after Summarize and I'll condense it.";
@@ -2510,7 +2538,7 @@ async function runTool(command, options = {}) {
                 if(!geo.ok) throw new Error(); const gd=await geo.json(); const place=gd.results?.[0]; if(!place) return `I couldn't find “${q}”. Try a city and country.`;
                 const wr=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m`);
                 if(!wr.ok) throw new Error(); const wd=await wr.json(); const c=wd.current;
-                const codes={0:"clear sky",1:"mainly clear",2:"partly cloudy",3:"overcast",45:"fog",48:"depositing rime fog",51:"light drizzle",53:"drizzle",55:"dense drizzle",61:"light rain",63:"rain",65:"heavy rain",71:"light snow",73:"snow",75:"heavy snow",80:"rain showers",81:"rain showers",82:"heavy rain showers",95:"thunderstorm"};
+                const codes={0:"clear sky",1:"mainly clear",2:"partly cloudy",3:"overcast",45:"fog",48:"depositing rime fog",51:"light drizzle",53:"drizzle",55:"dense drizzle",56:"freezing drizzle",57:"dense freezing drizzle",61:"light rain",63:"rain",65:"heavy rain",66:"light freezing rain",67:"heavy freezing rain",71:"light snow",73:"snow",75:"heavy snow",77:"snow grains",80:"rain showers",81:"rain showers",82:"heavy rain showers",85:"light snow showers",86:"heavy snow showers",95:"thunderstorm",96:"thunderstorm with light hail",99:"thunderstorm with heavy hail"};
                 return `Current weather in ${place.name}, ${place.country}: ${codes[c.weather_code]||"changing conditions"}. Temperature: ${c.temperature_2m}°C (feels like ${c.apparent_temperature}°C). Humidity: ${c.relative_humidity_2m}%. Wind: ${c.wind_speed_10m} km/h.`;
             } catch { return "The weather service is unavailable right now."; }
         }
@@ -3038,7 +3066,7 @@ const HANDLERS = [
 
         ],
 
-        `I'm Liminal AI ${VERSION}. This is the version that changed search from duckduckgo to tavily.`,
+        `I'm Liminal AI ${VERSION}. This release introduces decision-tree conversation routing and expanded responses.`,
 
         4
 
@@ -3182,7 +3210,7 @@ const HANDLERS = [
 
         ],
 
-        "I don't experience feelings the way people do. My 0.8 mood system is conversational behavior, not actual human emotion.",
+        "I don't experience feelings the way people do. My mood system is conversational behavior, not an actual human emotion.",
 
         4
 
@@ -4432,6 +4460,139 @@ function detectMoodFromMessage(text) {
 
 
 
+// ==========================================
+// 6A. DECISION TREE — conversation routing
+// ==========================================
+// Liminal first classifies the message, then chooses a response lane.
+// High-priority stateful handlers (corrections, memory, forget) still
+// run before this tree so existing memory behavior remains predictable.
+
+const treeNode = (test, yes, no) => ({ test, yes, no });
+const treeLeaf = category => ({ category });
+
+const DECISION_TREE = treeNode(
+    text => /^(hi|hello|hey|yo|sup|hiya|heya|good morning|good afternoon|good evening)\b/.test(text),
+    treeLeaf("greeting"),
+    treeNode(
+        text => /\b(thank you|thanks|thx|ty|much appreciated)\b/.test(text),
+        treeLeaf("thanks"),
+        treeNode(
+            text => /^(bye|goodbye|see you|later|cya|farewell)\b/.test(text),
+            treeLeaf("farewell"),
+            treeNode(
+                text => /\b(who are you|what are you|your name|what is your name|what version|which version)\b/.test(text),
+                treeLeaf("identity"),
+                treeNode(
+                    text => /\b(what can you do|your features|your tools|what tools|help me use you)\b/.test(text),
+                    treeLeaf("capabilities"),
+                    treeNode(
+                        text => /\b(how are you|how is it going|how are things|what is up)\b/.test(text),
+                        treeLeaf("status"),
+                        treeNode(
+                            text => /\b(i do not understand|i don't understand|im confused|i am confused|what do you mean)\b/.test(text),
+                            treeLeaf("confusion"),
+                            treeNode(
+                                text => /\b(coding|programming|javascript|python|html|css|game development|artificial intelligence|machine learning)\b/.test(text),
+                                treeLeaf("technology"),
+                                treeNode(
+                                    text => /\b(lol|lmao|haha|hehe|😂|😭|💀)\b/.test(text),
+                                    treeLeaf("playful"),
+                                    treeNode(
+                                        text => /\b(cool|nice|awesome|amazing|great|wow|whoa|interesting)\b/.test(text),
+                                        treeLeaf("reaction"),
+                                        treeLeaf("unclassified")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+);
+
+function classifyWithDecisionTree(text) {
+    let node = DECISION_TREE;
+    let steps = 0;
+    while (node && typeof node.test === "function" && steps++ < 20) {
+        node = node.test(text) ? node.yes : node.no;
+    }
+    return node?.category || "unclassified";
+}
+
+const DECISION_RESPONSES = {
+    greeting: [
+        "Hey! I'm here. What's on your mind? 👋",
+        "Hello! Ready when you are. 🤖",
+        "Yo! What are we working on today? 😎",
+        "Hey there! What's happening?",
+        "Hi! Good to see a new message in the signal. 💛"
+    ],
+    thanks: [
+        "You're welcome! That's what I'm here for. 👍",
+        "Anytime. Glad I could help!",
+        "No problem — onward. 😎",
+        "Of course! Let me know what comes next."
+    ],
+    farewell: [
+        "See you later! 👋",
+        "Catch you next time. Stay curious. 💛",
+        "Later! Liminal signing off...",
+        "Goodbye! Have a good one."
+    ],
+    identity: [
+        `I'm Liminal AI ${VERSION} — a conversational program with memory, context, and 10 explicitly activated tools.`,
+        `Liminal AI ${VERSION}. Minimal UI, liminal AI. That's the idea. 💛`
+    ],
+    capabilities: [
+        "I can chat, keep a small local memory, follow conversation context, and use 10 tools when you explicitly call them: Search, Math, Date, Time, Joke, Translate, Summarize, Dictionary, Weather, and Convert. Try starting a message with a tool name.",
+        "My toolkit includes Search, Math, Date, Time, Joke, Translate, Summarize, Dictionary, Weather, and Convert. Start your message with the tool name to activate it. I also have local conversation memory and context."
+    ],
+    status: [
+        "All systems are running. I'm ready for whatever you want to explore. 🤖",
+        "Doing well on this side of the interface. What's up with you?",
+        "I'm online and ready. What are we getting into today? ⚡"
+    ],
+    confusion: [
+        "No worries. Which part should I explain differently?",
+        "Let's slow it down. Tell me which bit stopped making sense, and I'll try another explanation.",
+        "That's okay — we can approach it from another angle. What part is unclear? 🤔"
+    ],
+    technology: [
+        "That's a good area to explore. Are you looking for an explanation, an example, or help building something? 💻",
+        "I can help break that down or work through a small example. What part interests you most?",
+        "There's a lot to experiment with there. What are you trying to make or understand?"
+    ],
+    playful: [
+        "😭 I see the energy.",
+        "That message has entered the system. 💀",
+        "Okay, that got a reaction out of me — computationally speaking. 😎",
+        "LMAO. Anyway, continue."
+    ],
+    reaction: [
+        "Right? 😎",
+        "Glad that caught your attention!",
+        "Yeah, there's something fun about that. 💛",
+        "Nice. What should we do with that idea?"
+    ]
+};
+
+function runDecisionTree(text) {
+    const category = classifyWithDecisionTree(text);
+    const responses = DECISION_RESPONSES[category];
+    if (!responses) return null;
+
+    const moodByCategory = {
+        greeting: "happy", thanks: "happy", farewell: "happy", identity: "neutral",
+        capabilities: "helpful", status: "happy", confusion: "thoughtful",
+        technology: "curious", playful: "playful", reaction: "excited"
+    };
+    setMood(moodByCategory[category] || "neutral");
+    setConfidence("high");
+    return randomResponse(responses);
+}
+
 function runHandlers(text) {
 
 
@@ -4539,47 +4700,36 @@ function runHandlers(text) {
 // Local Liminal thinking: mood first, then the first matching handler.
 
 function think(originalText) {
+    const text = normalizeText(originalText);
+    setConfidence("high");
+    setMood(detectMoodFromMessage(originalText) || "neutral");
 
+    // Stateful operations must keep priority over conversational routing.
+    const stateful = /^(no\b|nope\b|nah\b|actually\b|that is wrong\b|forget\b|remember that\b|my\b|i am\b|i live in\b|i like\b)/.test(text);
+    if (stateful) {
+        const statefulReply = runHandlers(text);
+        if (statefulReply !== null) return statefulReply;
+    }
 
+    // Preserve specific built-in explanations before the broad technology branch.
+    if (classifyWithDecisionTree(text) === "technology") {
+        const knownTechnologyReply = runHandlers(text);
+        if (knownTechnologyReply !== null) return knownTechnologyReply;
+    }
 
-    const text = normalizeText(originalText);
+    // Decision tree selects a conversational lane before the remaining legacy intents.
+    const treeReply = runDecisionTree(text);
+    if (treeReply !== null) return treeReply;
 
+    const reply = runHandlers(text);
+    if (reply !== null) return reply;
 
-
-    setConfidence("high");
-
-
-
-    setMood(detectMoodFromMessage(originalText) || "neutral");
-
-
-
-    const reply = runHandlers(text);
-
-
-
-    if (reply !== null) {
-
-
-
-        return reply;
-
-
-
-    }
-
-
-
-    setConfidence("low");
-
-    setMood("confused");
-
-
-
-    return "I'm not sure what you mean. Could you rephrase that? You can also ask me to search the web. 🌐";
-
-
-
+    setConfidence("low");
+    setMood("confused");
+    if (text.endsWith("?")) {
+        return "I don't have a built-in answer for that yet. Try asking me to search for it, or give me a little more context so I can understand what you're looking for. 🌐";
+    }
+    return "I'm not sure what you mean yet. Could you rephrase that or give me a little more context? I'm listening. 🤔";
 }
 
 
@@ -5057,10 +5207,11 @@ window.Liminal = {
 
     clearContext: clearConversationContext,
 
-    getTopic: () => lastTopic
+    getTopic: () => lastTopic,
 
+    classifyIntent: text => classifyWithDecisionTree(normalizeText(text)),
 
-
+    getVersion: () => VERSION
 };
 
 

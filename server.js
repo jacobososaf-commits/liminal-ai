@@ -1,5 +1,5 @@
 // ==========================================
-// LIMINAL AI 0.9 BACKEND
+// LIMINAL AI 1.1 BACKEND
 // TAVILY WEB SEARCH
 // ==========================================
 
@@ -49,7 +49,7 @@ app.get("/", (req, res) => {
             "Liminal AI backend is online.",
 
         version:
-            "0.9",
+            "1.1",
 
         search:
             "Tavily"
